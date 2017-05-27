@@ -7,4 +7,3 @@
 [submodule "gsSlicer"]
 	path = gsSlicer
 	url = https://github.com/gradientspace/gsSlicer
-	branch = refactoring
