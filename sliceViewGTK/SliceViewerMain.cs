@@ -57,8 +57,8 @@ namespace SliceViewer
 			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/bunny_solid_2p5cm.obj");
 			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/bunny_solid_5cm_min.obj");
 			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/basic_step.obj");
-			DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/slab_5deg.obj");
-			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/unsupported_slab_5deg.obj");
+			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/slab_5deg.obj");
+			DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/unsupported_slab_5deg.obj");
 			GCodeFile genGCode = MakerbotTests.SliceMeshTest_Roofs(mesh);
 
 			string sWritePath = "../../../sample_output/generated.gcode";
