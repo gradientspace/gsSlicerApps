@@ -20,6 +20,25 @@ namespace SliceViewer
 		public Vector2f Translate = Vector2f.Zero;
 
 
+		public enum NumberModes
+		{
+			NoNumbers,
+			PathNumbers
+		}
+		NumberModes num_mode = NumberModes.NoNumbers;
+		public NumberModes NumberMode {
+			get { return num_mode; }
+			set { num_mode = value; QueueDraw(); }
+		}
+
+
+		bool show_below = true;
+		public bool ShowBelowLayer {
+			get { return show_below; }
+			set { show_below = value; QueueDraw(); }
+		}
+
+
 		public SliceViewCanvas() 
 		{
 			ExposeEvent += OnExpose;
@@ -33,6 +52,7 @@ namespace SliceViewer
 			            Gdk.EventMask.ScrollMask;
 
 			SetPaths(new PathSet());
+			InitializeInternals();
 		}
 
 		PathSet Paths;
@@ -51,8 +71,13 @@ namespace SliceViewer
 			set {
 				currentLayer = MathUtil.Clamp(value, 0, Layers.Layers - 1);
 				Interval1d layer_zrange = Layers.GetLayerZInterval(currentLayer);
+				Interval1d prev_zrange = Layers.GetLayerZInterval(currentLayer - 1);
 				LayerFilterF = (v) => {
-					return (layer_zrange.Contains(v.z)) ? (byte)255 : (byte)0;
+					if (layer_zrange.Contains(v.z))
+						return 255;
+					else if (show_below && prev_zrange.Contains(v.z))
+						return 16;
+					return (byte)0;
 				};
 				QueueDraw();
 			}
@@ -68,9 +93,22 @@ namespace SliceViewer
 			for ( int i = 1; i < path.VertexCount; i++ )
 				p.LineTo( mapF(path[i].Position.xy) );
 			return p;
-		} 
+		}
 
 
+
+
+		Func<Vector2d, Vector2f> SceneXFormF = (v) => { return (Vector2f)v; };
+		Func<Vector2d, SKPoint> SceneToSkiaF = null;
+		void InitializeInternals()
+		{
+			SceneToSkiaF = (v) => {
+				Vector2f p = SceneXFormF(v);
+				return new SKPoint(p.x, p.y);
+			};
+		}
+			
+			
 
 
 		void OnExpose(object sender, ExposeEventArgs args)
@@ -102,91 +140,30 @@ namespace SliceViewer
 				using (var skSurface = SKSurface.Create(bitmap.Info.Width, bitmap.Info.Height, SkiaUtil.ColorType(), SKAlphaType.Premul, bitmap.GetPixels(out len), bitmap.Info.RowBytes))
 				{
 					var canvas = skSurface.Canvas;
-					canvas.Clear(SkiaUtil.Color(240, 240, 240, 255));
+					canvas.Clear(SkiaUtil.Color(255, 255, 255, 255));
 
-					Func<Vector2d, Vector2f> xformF = (pOrig) => {
-						Vector2f pNew = (Vector2f)pOrig;
-						pNew -= (Vector2f)bounds.Center;
+					// update scene xform
+					SceneXFormF = (pOrig) => {
+						Vector2f pNew = (Vector2f)pOrig - (Vector2f)bounds.Center;
 						pNew = Zoom * scale * pNew;
 						pNew += (Vector2f)pixC;
 						pNew += translate + Zoom*Translate;
 						pNew.y = canvas.ClipBounds.Height - pNew.y;
 						return pNew;
 					};
-					Func<Vector2d, SKPoint> mapToSkiaF = (pOrig) => {
-						Vector2f p = xformF(pOrig);
-						return new SKPoint(p.x, p.y);
-					};
+
 
 					using (var paint = new SKPaint())
 					{
-						paint.StrokeWidth = 1;
-						SKColor extrudeColor = SkiaUtil.Color(0, 0, 0, 255);
-						SKColor travelColor = SkiaUtil.Color(0,255,0,128);
-						SKColor startColor = SkiaUtil.Color(255, 0, 0, 128);
-						SKColor planeColor = SkiaUtil.Color(0,0,255, 128);
-						float pointR = 3f;
 						paint.IsAntialias = true;
 
-						//paint.Style = SKPaintStyle.Fill;
+						paint.StrokeWidth = 1;
                         paint.Style = SKPaintStyle.Stroke;
 
-						Action<LinearPath3<PathVertex>> drawPath3F = (polyPath) => {
+						DrawLayerPaths(Paths, canvas, paint);
 
-							Vector3d v0 = polyPath.Start.Position;
-							byte layer_alpha = LayerFilterF(v0);
-							if (layer_alpha == 0)
-								return;
-
-							SKPath path = MakePath(polyPath, mapToSkiaF);
-							if (polyPath.Type == PathTypes.Deposition) {
-								paint.Color = extrudeColor;
-							} else if (polyPath.Type == PathTypes.Travel) {
-								paint.Color = travelColor;
-								paint.StrokeWidth = 3;
-							} else if (polyPath.Type == PathTypes.PlaneChange) {
-								paint.StrokeWidth = 0.5f;
-								paint.Color = planeColor;
-							} else {
-								paint.Color = startColor;
-							}
-							paint.Color = SkiaUtil.Color(paint.Color, layer_alpha);
-
-							canvas.DrawPath(path, paint);
-
-							paint.StrokeWidth = 1;
-
-							Vector2f pt = xformF(polyPath.Start.Position.xy);
-							if (polyPath.Type == PathTypes.Deposition) {
-								canvas.DrawCircle(pt.x, pt.y, pointR, paint);
-							} else if (polyPath.Type == PathTypes.Travel) {
-								canvas.DrawCircle(pt.x, pt.y, pointR, paint);
-							} else if (polyPath.Type == PathTypes.PlaneChange) {
-								paint.Style = SKPaintStyle.Fill;
-								canvas.DrawCircle(pt.x, pt.y, 4f, paint);
-								paint.Style = SKPaintStyle.Stroke;
-							}
-
-							paint.StrokeWidth = 1;
-							paint.Color = startColor;
-						};
-						Action<IPath> drawPath = (path) => {
-							if ( path is LinearPath3<PathVertex> )
-								drawPath3F(path as LinearPath3<PathVertex> );
-							// else we might have other path type...
-						};
-						Action<IPathSet> drawPaths = null;
-						drawPaths = (paths) => {
-							foreach ( IPath path in paths ) {
-								if ( path is IPathSet )
-									drawPaths(path as IPathSet);
-								else
-									drawPath(path);
-							}
-						};
-
-						drawPaths(Paths);
-
+						if (NumberMode == NumberModes.PathNumbers )
+							DrawPathLabels(Paths, canvas, paint);
 					}
 
 					Cairo.Surface surface = new Cairo.ImageSurface(
@@ -204,6 +181,133 @@ namespace SliceViewer
 			//return true;
 		}
 
+
+
+
+
+
+		void ProcessLinearPaths(PathSet pathSetIn, Action<LinearPath3<PathVertex>> processF) {
+			Action<IPath> drawPath = (path) => {
+				if (path is LinearPath3<PathVertex>)
+					processF(path as LinearPath3<PathVertex>);
+				// else we might have other path type...
+			};
+			Action<IPathSet> drawPaths = null;
+			drawPaths = (pathList) => {
+				foreach (IPath path in pathList) {
+					if (path is IPathSet)
+						drawPaths(path as IPathSet);
+					else
+						drawPath(path);
+				}
+			};
+
+			drawPaths(pathSetIn);			
+		}
+
+
+
+
+		private void DrawLayerPaths(PathSet pathSetIn, SKCanvas canvas, SKPaint paint) {
+
+			SKColor extrudeColor = SkiaUtil.Color(0, 0, 0, 255);
+			SKColor travelColor = SkiaUtil.Color(0, 255, 0, 128);
+			SKColor startColor = SkiaUtil.Color(255, 0, 0, 128);
+			SKColor planeColor = SkiaUtil.Color(0, 0, 255, 128);
+			float pointR = 3f;
+
+			Action<LinearPath3<PathVertex>> drawPath3F = (polyPath) => {
+
+				Vector3d v0 = polyPath.Start.Position;
+				byte layer_alpha = LayerFilterF(v0);
+				if (layer_alpha == 0)
+					return;
+				bool is_below = (layer_alpha < 255);
+
+				SKPath path = MakePath(polyPath, SceneToSkiaF);
+				if (polyPath.Type == PathTypes.Deposition) {
+					paint.Color = extrudeColor;
+					paint.StrokeWidth = 1.5f;
+				} else if (polyPath.Type == PathTypes.Travel) {
+					if (is_below)
+						return;
+					paint.Color = travelColor;
+					paint.StrokeWidth = 3;
+				} else if (polyPath.Type == PathTypes.PlaneChange) {
+					if (is_below)
+						return;					
+					paint.StrokeWidth = 0.5f;
+					paint.Color = planeColor;
+				} else {
+					if (is_below)
+						return;					
+					paint.Color = startColor;
+				}
+				paint.Color = SkiaUtil.Color(paint.Color, layer_alpha);
+
+				if (is_below)
+					paint.StrokeWidth = 6;
+				canvas.DrawPath(path, paint);
+
+				paint.StrokeWidth = 1;
+
+				if (is_below == false) {
+					Vector2f pt = SceneXFormF(polyPath.Start.Position.xy);
+					if (polyPath.Type == PathTypes.Deposition) {
+						canvas.DrawCircle(pt.x, pt.y, pointR, paint);
+					} else if (polyPath.Type == PathTypes.Travel) {
+						canvas.DrawCircle(pt.x, pt.y, pointR, paint);
+					} else if (polyPath.Type == PathTypes.PlaneChange) {
+						paint.Style = SKPaintStyle.Fill;
+						canvas.DrawCircle(pt.x, pt.y, 4f, paint);
+						paint.Style = SKPaintStyle.Stroke;
+					}
+				}
+			};
+
+			ProcessLinearPaths(pathSetIn, drawPath3F);
+			
+		}
+
+
+
+
+
+		private void DrawPathLabels(PathSet pathSetIn, SKCanvas canvas, SKPaint paint) 
+		{
+			int counter = 1;
+
+			paint.Style = SKPaintStyle.StrokeAndFill;
+			paint.IsAntialias = true;
+			paint.Color = SKColors.Black;
+			paint.StrokeWidth = 1;
+			paint.TextSize = 15.0f;
+
+			Action<LinearPath3<PathVertex>> drawLabelF = (polyPath) => {
+				Vector3d v0 = polyPath.Start.Position;
+				byte layer_alpha = LayerFilterF(v0);
+				if (layer_alpha < 255)
+					return;
+
+				string label = string.Format("{0}", counter++);
+				paint.Color = SKColors.Black;
+
+				Vector3d vPos = v0;
+				float shiftX = 0, shiftY = 0;
+				if ( polyPath.Type == PathTypes.Travel ) {
+					vPos = (polyPath.Start.Position + polyPath.End.Position) * 0.5;
+				} else if ( polyPath.Type == PathTypes.PlaneChange ) {
+					shiftY = paint.TextSize * 0.5f;
+					//shiftX = -paint.TextSize * 0.5f;
+					paint.Color = SKColors.DarkRed;
+				}
+
+				SKPoint pos = SceneToSkiaF(vPos.xy);
+				canvas.DrawText(label, pos.X + shiftX, pos.Y + shiftY, paint);
+			};
+
+			ProcessLinearPaths(pathSetIn, drawLabelF);
+		}
 
 
 

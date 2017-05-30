@@ -118,7 +118,7 @@ namespace SliceViewer
 		private static void Window_KeyReleaseEvent(object sender, KeyReleaseEventArgs args)
 		{
 			if (args.Event.Key == Gdk.Key.Up) {
-				if ( (args.Event.State & Gdk.ModifierType.ShiftMask) != 0 )
+				if ((args.Event.State & Gdk.ModifierType.ShiftMask) != 0)
 					View.CurrentLayer = View.CurrentLayer + 10;
 				else
 					View.CurrentLayer = View.CurrentLayer + 1;
@@ -127,6 +127,15 @@ namespace SliceViewer
 					View.CurrentLayer = View.CurrentLayer - 10;
 				else
 					View.CurrentLayer = View.CurrentLayer - 1;
+
+			} else if (args.Event.Key == Gdk.Key.n) {
+				if (View.NumberMode == SliceViewCanvas.NumberModes.NoNumbers)
+					View.NumberMode = SliceViewCanvas.NumberModes.PathNumbers;
+				else
+					View.NumberMode = SliceViewCanvas.NumberModes.NoNumbers;
+
+			} else if (args.Event.Key == Gdk.Key.b) {
+				View.ShowBelowLayer = !View.ShowBelowLayer;
 			}
 		}
 
