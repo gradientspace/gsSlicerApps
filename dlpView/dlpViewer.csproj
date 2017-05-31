@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
-    <ProjectGuid>{6348C5CD-6696-4B59-9851-43924A326BD4}</ProjectGuid>
+    <ProjectGuid>{27d42159-1910-4506-b62b-8a502084eac1}</ProjectGuid>
     <OutputType>WinExe</OutputType>
     <TargetFrameworkVersion>v4.5.2</TargetFrameworkVersion>
     <RootNamespace>DLPViewer</RootNamespace>
