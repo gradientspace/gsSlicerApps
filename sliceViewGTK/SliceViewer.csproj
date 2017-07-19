@@ -84,9 +84,11 @@
   <ItemGroup>
     <Compile Include="SliceViewerMain.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="ViewportCanvasArea.cs" />
+    <Compile Include="SliceViewCanvas.cs" />
     <Compile Include="SkiaUtil.cs" />
     <Compile Include="PanZoomCanvas2D.cs" />
+    <Compile Include="DebugViewCanvas.cs" />
+    <Compile Include="SliceViewerTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />

@@ -4,7 +4,6 @@ using System.IO;
 
 using Gtk;
 using GLib;
-using SkiaSharp;
 using g3;
 using gs;
 
@@ -37,11 +36,16 @@ namespace SliceViewer
 
 
 
-			//string sPath = "../../../sample_files/disc_single_layer.gcode";
+			string sPath = "../../../sample_files/disc_single_layer.gcode";
 			//string sPath = "../../../sample_files/disc_0p6mm.gcode";
 			//string sPath = "../../../sample_files/square_linearfill.gcode";
 			//string sPath = "../../../sample_files/thin_hex_test_part.gcode";
-			string sPath = "../../../sample_files/box_infill_50.gcode";
+			//string sPath = "../../../sample_files/box_infill_50.gcode";
+			//string sPath = "../../../sample_files/tube_adapter.gcode";
+			//string sPath = "../../../sample_files/ring_2p2_makerbot.gcode";
+			//string sPath = "/Users/rms/Desktop/print_experiment/cura_ring_2p2.gcode";
+			//string sPath = "/Users/rms/Desktop/print_experiment/slic3r_ring_2p2.gcode";
+
 
 
 #if true
@@ -58,7 +62,12 @@ namespace SliceViewer
 			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/bunny_solid_5cm_min.obj");
 			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/basic_step.obj");
 			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/slab_5deg.obj");
-			DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/unsupported_slab_5deg.obj");
+			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/unsupported_slab_5deg.obj");
+			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/sphere_angles_1cm.obj");
+			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/inverted_cone_1.obj");
+			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/tube_adapter.obj");
+			DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/tube_1.obj");
+			MeshUtil.ScaleMesh(mesh, Frame3f.Identity, 1.1f*Vector3f.One);
 			GCodeFile genGCode = MakerbotTests.SliceMeshTest_Roofs(mesh);
 
 			string sWritePath = "../../../sample_output/generated.gcode";
@@ -104,10 +113,39 @@ namespace SliceViewer
 
 			MainWindow.KeyReleaseEvent += Window_KeyReleaseEvent;
 
+			// support drag-drop
+			Gtk.TargetEntry[] target_table = new TargetEntry[] {
+			  new TargetEntry ("text/uri-list", 0, 0),
+			};
+			Gtk.Drag.DestSet(MainWindow, DestDefaults.All, target_table, Gdk.DragAction.Copy);
+			MainWindow.DragDataReceived += MainWindow_DragDataReceived;;
+
+
             MainWindow.ShowAll();
 
             Gtk.Application.Run();
         }
+
+
+		static void LoadGCodeFile(string sPath) {
+			GenericGCodeParser parser = new GenericGCodeParser();
+			GCodeFile gcode;
+			using (FileStream fs = new FileStream(sPath, FileMode.Open, FileAccess.Read)) {
+				using (TextReader reader = new StreamReader(fs)) {
+					gcode = parser.Parse(reader);
+				}
+			}
+
+			GCodeToLayerPaths converter = new GCodeToLayerPaths();
+			MakerbotInterpreter interpreter = new MakerbotInterpreter();
+			interpreter.AddListener(converter);
+			InterpretArgs interpArgs = new InterpretArgs();
+			interpreter.Interpret(gcode, interpArgs);
+
+			PathSet Paths = converter.Paths;
+			View.SetPaths(Paths);		
+		}
+
 
 		void OnException(object o, UnhandledExceptionArgs args)
 		{
@@ -136,9 +174,37 @@ namespace SliceViewer
 
 			} else if (args.Event.Key == Gdk.Key.b) {
 				View.ShowBelowLayer = !View.ShowBelowLayer;
+
+			} else if ( args.Event.Key == Gdk.Key.q ) {
+				SliceViewerTests.TestDGraph2();
+
 			}
 		}
 
+
+
+
+
+
+		static void MainWindow_DragDataReceived(object o, DragDataReceivedArgs args)
+		{
+			string data = System.Text.Encoding.UTF8.GetString(args.SelectionData.Data);
+			data = data.Trim('\r', '\n', '\0');
+			if (Util.IsRunningOnMono()) {
+				data = data.Replace("file://", "");
+			} else {
+				data = data.Replace("file:///", "");
+			}
+			data = data.Replace("%20", " ");        // gtk inserts these for spaces? maybe? wtf.
+			try {
+				LoadGCodeFile(data);
+			} catch (Exception e) {
+				using (var dialog = new Gtk.MessageDialog(MainWindow, DialogFlags.Modal, MessageType.Info, ButtonsType.Ok,
+					"Exception loading {0} : {1}", data, e.Message)) {
+					dialog.Show();
+				}
+			}
+		}
 
 
 

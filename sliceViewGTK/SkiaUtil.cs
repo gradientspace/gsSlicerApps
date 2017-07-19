@@ -4,7 +4,7 @@ using g3;
 using gs;
 
 
-namespace SliceViewer 
+namespace gs 
 {
 	public static class SkiaUtil 
 	{
@@ -23,6 +23,11 @@ namespace SliceViewer
 			} else {
 				return new SKColor(b, g, r, a);
 			}
+		}
+
+		public static SKColor Color(Colorf c) {
+			Colorb bc = c.ToBytes();
+			return Color(bc.r, bc.g, bc.b, bc.a);
 		}
 
 
@@ -51,6 +56,23 @@ namespace SliceViewer
 				p.MoveTo(mapF(h[0]));
 				for (int i = 1; i < hN; ++i)
 					p.LineTo(mapF(h[i]));
+				p.Close();
+			}
+
+			return p;
+		}
+
+
+
+		public static SKPath ToSKPath(DGraph2 g, Func<Vector2d, SKPoint> mapF)
+		{
+			SKPath p = new SKPath();
+
+			foreach (Index3i edge in g.Edges()) {
+				Vector2d a = g.GetVertex(edge.a);
+				Vector2d b = g.GetVertex(edge.b);
+				p.MoveTo(mapF(a));
+				p.LineTo(mapF(b));
 				p.Close();
 			}
 
