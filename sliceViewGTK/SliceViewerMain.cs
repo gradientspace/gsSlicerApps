@@ -58,7 +58,7 @@ namespace SliceViewer
 			//GCodeFile genGCode = MakerbotTests.StackedPolygonTest(poly, 2);
 			//GCodeFile genGCode = MakerbotTests.StackedScaledPolygonTest(poly, 20, 0.5);
 
-			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/bunny_solid_2p5cm.obj");
+			DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/bunny_solid_2p5cm.obj");
 			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/bunny_solid_5cm_min.obj");
 			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/basic_step.obj");
 			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/slab_5deg.obj");
@@ -66,9 +66,30 @@ namespace SliceViewer
 			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/sphere_angles_1cm.obj");
 			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/inverted_cone_1.obj");
 			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/tube_adapter.obj");
-			DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/tube_1.obj");
+			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/tube_1.obj");
 			MeshUtil.ScaleMesh(mesh, Frame3f.Identity, 1.1f*Vector3f.One);
-			GCodeFile genGCode = MakerbotTests.SliceMeshTest_Roofs(mesh);
+
+
+			// make mesh assembly
+			PrintMeshAssembly meshes = new PrintMeshAssembly();
+			meshes.Meshes.Add(mesh);
+
+			// configure settings
+			MakerbotSettings settings = new MakerbotSettings();
+
+			// slice meshes
+			MeshPlanarSlicer slicer = new MeshPlanarSlicer() {
+				LayerHeightMM = settings.LayerHeightMM
+			};
+			slicer.AddMeshes(meshes.Meshes);
+			PlanarSliceStack slices = slicer.Compute();
+
+			// run print generator
+			MakerbotPrintGenerator printGen = new MakerbotPrintGenerator(
+				meshes, slices, settings
+			);
+			printGen.Generate();
+			GCodeFile genGCode = printGen.Result;
 
 			string sWritePath = "../../../sample_output/generated.gcode";
 			StandardGCodeWriter writer = new StandardGCodeWriter();
@@ -221,7 +242,7 @@ namespace SliceViewer
 				DCurve3 curve = MeshUtil.ExtractLoopV(mesh, loop.Vertices);
 				foreach (Vector3d v in curve.Vertices)
 					poly.AppendVertex(v.xy);
-				complex.AddPolygon(poly);
+				complex.Add(poly);
 			}
 
 			PlanarComplex.SolidRegionInfo solids = complex.FindSolidRegions(0.0, false);
