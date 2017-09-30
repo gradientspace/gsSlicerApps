@@ -13,8 +13,7 @@ namespace gs
 		public float Zoom = 0.95f;
 
 		// this is a pixel-space translate
-		public Vector2f Translate = Vector2f.Zero;
-
+		public Vector2f PixelTranslate = Vector2f.Zero;
 
 		public PanZoomCanvas2D()
 		{
@@ -71,7 +70,7 @@ namespace gs
 						Vector2f pNew = (Vector2f)pOrig - (Vector2f)bounds.Center;
 						pNew = Zoom * scale * pNew;
 						pNew += (Vector2f)pixC;
-						pNew += translate + Zoom * Translate;
+						pNew += translate + Zoom * PixelTranslate;
 						pNew.y = canvas.ClipBounds.Height - pNew.y;
 						return pNew;
 					};
@@ -117,7 +116,7 @@ namespace gs
 			if (args.Event.Button == 1) {
 				left_down = true;
 				start_pos = new Vector2f((float)args.Event.X, (float)args.Event.Y);
-				pan_start = Translate;
+				pan_start = PixelTranslate;
 			}
 		}
 		protected void OnButtonReleaseEvent(object o, ButtonReleaseEventArgs args)
@@ -132,7 +131,7 @@ namespace gs
 				Vector2f delta = cur_pos - start_pos;
 				delta.y = -delta.y;
 				delta *= 1.0f;  // speed
-				Translate = pan_start + delta / Zoom;
+				PixelTranslate = pan_start + delta / Zoom;
 				QueueDraw();
 			}
 		}
@@ -141,13 +140,9 @@ namespace gs
 		public void Reset()
 		{
 			Zoom = 1.0f;
-			Translate = Vector2f.Zero;
+			PixelTranslate = Vector2f.Zero;
 			QueueDraw();
 		}
-
-
-
-
 
 
 

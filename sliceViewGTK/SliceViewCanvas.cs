@@ -8,7 +8,9 @@ namespace SliceViewer
 {
 	class SliceViewCanvas : PanZoomCanvas2D
 	{
+        public bool ShowPathStartPoints = true;
 		public bool ShowOpenEndpoints = true;
+        public bool ShowTravels = true;
 
 		public enum NumberModes
 		{
@@ -181,12 +183,16 @@ namespace SliceViewer
 				} else if (polyPath.Type == PathTypes.Travel) {
 					if (is_below)
 						return;
+                    if (ShowTravels == false)
+                        return;
 					paint.Color = travelColor;
 					paint.StrokeWidth = 3;
 				} else if (polyPath.Type == PathTypes.PlaneChange) {
 					if (is_below)
-						return;					
-					paint.StrokeWidth = 0.5f;
+						return;
+                    if (ShowTravels == false)
+                        return;
+                    paint.StrokeWidth = 0.5f;
 					paint.Color = planeColor;
 				} else {
 					if (is_below)
@@ -201,7 +207,7 @@ namespace SliceViewer
 
 				paint.StrokeWidth = 1;
 
-				if (is_below == false) {
+				if (is_below == false && ShowPathStartPoints) {
 					Vector2f pt = SceneXFormF(polyPath.Start.Position.xy);
 					if (polyPath.Type == PathTypes.Deposition) {
 						canvas.DrawCircle(pt.x, pt.y, pointR, paint);

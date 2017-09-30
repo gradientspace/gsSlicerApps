@@ -37,101 +37,118 @@ namespace SliceViewer
 
 
 			string sPath = "../../../sample_files/disc_single_layer.gcode";
-			//string sPath = "../../../sample_files/disc_0p6mm.gcode";
-			//string sPath = "../../../sample_files/square_linearfill.gcode";
-			//string sPath = "../../../sample_files/thin_hex_test_part.gcode";
-			//string sPath = "../../../sample_files/box_infill_50.gcode";
-			//string sPath = "../../../sample_files/tube_adapter.gcode";
-			//string sPath = "../../../sample_files/ring_2p2_makerbot.gcode";
-			//string sPath = "/Users/rms/Desktop/print_experiment/cura_ring_2p2.gcode";
-			//string sPath = "/Users/rms/Desktop/print_experiment/slic3r_ring_2p2.gcode";
+            //string sPath = "../../../sample_files/disc_0p6mm.gcode";
+            //string sPath = "../../../sample_files/square_linearfill.gcode";
+            //string sPath = "../../../sample_files/thin_hex_test_part.gcode";
+            //string sPath = "../../../sample_files/box_infill_50.gcode";
+            //string sPath = "../../../sample_files/tube_adapter.gcode";
+            //string sPath = "../../../sample_files/ring_2p2_makerbot.gcode";
+            //string sPath = "/Users/rms/Desktop/print_experiment/cura_ring_2p2.gcode";
+            //string sPath = "/Users/rms/Desktop/print_experiment/slic3r_ring_2p2.gcode";
 
-
+            DMesh3 readMesh = null;
 
 #if true
-			//GCodeFile genGCode = MakerbotTests.SimpleFillTest();
-			//GCodeFile genGCode = MakerbotTests.SimpleShellsTest();
-			//GCodeFile genGCode = MakerbotTests.InfillBoxTest();
+            //GCodeFile genGCode = MakerbotTests.SimpleFillTest();
+            //GCodeFile genGCode = MakerbotTests.SimpleShellsTest();
+            //GCodeFile genGCode = MakerbotTests.InfillBoxTest();
 
-			//GeneralPolygon2d poly = GetPolygonFromMesh("../../../sample_files/bunny_open.obj");
-			//GCodeFile genGCode = MakerbotTests.ShellsPolygonTest(poly);
-			//GCodeFile genGCode = MakerbotTests.StackedPolygonTest(poly, 2);
-			//GCodeFile genGCode = MakerbotTests.StackedScaledPolygonTest(poly, 20, 0.5);
+            //GeneralPolygon2d poly = GetPolygonFromMesh("../../../sample_files/bunny_open.obj");
+            //GCodeFile genGCode = MakerbotTests.ShellsPolygonTest(poly);
+            //GCodeFile genGCode = MakerbotTests.StackedPolygonTest(poly, 2);
+            //GCodeFile genGCode = MakerbotTests.StackedScaledPolygonTest(poly, 20, 0.5);
 
-			DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/bunny_solid_2p5cm.obj");
-			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/bunny_solid_5cm_min.obj");
-			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/basic_step.obj");
-			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/slab_5deg.obj");
-			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/unsupported_slab_5deg.obj");
-			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/sphere_angles_1cm.obj");
-			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/inverted_cone_1.obj");
-			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/tube_adapter.obj");
-			//DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/tube_1.obj");
-			MeshUtil.ScaleMesh(mesh, Frame3f.Identity, 1.1f*Vector3f.One);
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/bunny_solid_2p5cm.obj");
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/bunny_solid_5cm_min.obj");
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/basic_step.obj");
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/slab_5deg.obj");
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/unsupported_slab_5deg.obj");
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/sphere_angles_1cm.obj");
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/inverted_cone_1.obj");
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/tube_adapter.obj");
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/tube_1.obj");
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/50x50x1_box.obj");
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/crop_bracket.obj");
+            readMesh = StandardMeshReader.ReadMesh("../../../sample_files/thinwall2.obj");
+            MeshUtil.ScaleMesh(readMesh, Frame3f.Identity, 1.1f*Vector3f.One);
 
+            PrintMeshAssembly meshes = new PrintMeshAssembly();
+            meshes.Meshes.Add(readMesh);
 
-			// make mesh assembly
-			PrintMeshAssembly meshes = new PrintMeshAssembly();
-			meshes.Meshes.Add(mesh);
+            AxisAlignedBox3d bounds = meshes.TotalBounds;
+            AxisAlignedBox2d bounds2 = new AxisAlignedBox2d(bounds.Center.xy, bounds.Width / 2, bounds.Height / 2);
 
-			// configure settings
-			MakerbotSettings settings = new MakerbotSettings();
-
-			// slice meshes
-			MeshPlanarSlicer slicer = new MeshPlanarSlicer() {
-				LayerHeightMM = settings.LayerHeightMM
-			};
-			slicer.AddMeshes(meshes.Meshes);
-			PlanarSliceStack slices = slicer.Compute();
-
-			// run print generator
-			MakerbotPrintGenerator printGen = new MakerbotPrintGenerator(
-				meshes, slices, settings
-			);
-			printGen.Generate();
-			GCodeFile genGCode = printGen.Result;
-
-			string sWritePath = "../../../sample_output/generated.gcode";
-			StandardGCodeWriter writer = new StandardGCodeWriter();
-			using ( StreamWriter w = new StreamWriter(sWritePath) ) {
-				writer.WriteFile(genGCode, w);
-			}
-			sPath = sWritePath;
 #endif
 
-
-			GenericGCodeParser parser = new GenericGCodeParser();
-			GCodeFile gcode;
-			using (FileStream fs = new FileStream(sPath, FileMode.Open, FileAccess.Read)) {
-				using (TextReader reader = new StreamReader(fs) ) {
-					gcode = parser.Parse(reader);
-				}
-			}
-
-
-			// write back out gcode we loaded
-			//StandardGCodeWriter writer = new StandardGCodeWriter();
-			//using ( StreamWriter w = new StreamWriter("../../../sample_output/writeback.gcode") ) {
-			//	writer.WriteFile(gcode, w);
-			//}
-
-			GCodeToLayerPaths converter = new GCodeToLayerPaths();
-			MakerbotInterpreter interpreter = new MakerbotInterpreter();
-			interpreter.AddListener(converter);
-
-			InterpretArgs interpArgs = new InterpretArgs();
-			interpreter.Interpret(gcode, interpArgs);
-
-			//MakerbotSettings settings = new MakerbotSettings();
-			//CalculateExtrusion calc = new CalculateExtrusion(converter.Paths, settings);
-			//calc.TestCalculation();
-
-			PathSet Paths = converter.Paths;
-
             View = new SliceViewCanvas();
-			View.SetPaths(Paths);
-            MainWindow.Add(View);
 
+
+            bool TEST_SLS = false;
+            PathSet ViewPaths = null;
+
+
+            if (TEST_SLS) {
+
+                // configure settings
+                MakerbotSettings settings = new MakerbotSettings();
+
+                // slice meshes
+                MeshPlanarSlicer slicer = new MeshPlanarSlicer() {
+                    LayerHeightMM = settings.LayerHeightMM
+                };
+                slicer.AddMeshes(meshes.Meshes);
+                PlanarSliceStack slices = slicer.Compute();
+
+                // run print generator
+                GenericSLSPrintGenerator printGen = new GenericSLSPrintGenerator(
+                    meshes, slices, settings
+                );
+                printGen.Generate();
+
+                ViewPaths = printGen.Result;
+                View.ShowOpenEndpoints = false;
+                View.ShowTravels = false;
+                View.ShowPathStartPoints = false;
+
+            } else {
+
+                if (readMesh != null) {
+                    // generate gcode file for mesh
+                    sPath = GenerateGCodeForMeshes(meshes);
+                }
+
+                // read gcode file
+                GenericGCodeParser parser = new GenericGCodeParser();
+                GCodeFile gcode;
+                using (FileStream fs = new FileStream(sPath, FileMode.Open, FileAccess.Read)) {
+                    using (TextReader reader = new StreamReader(fs)) {
+                        gcode = parser.Parse(reader);
+                    }
+                }
+
+                // write back out gcode we loaded
+                //StandardGCodeWriter writer = new StandardGCodeWriter();
+                //using ( StreamWriter w = new StreamWriter("../../../sample_output/writeback.gcode") ) {
+                //	writer.WriteFile(gcode, w);
+                //}
+
+                GCodeToLayerPaths converter = new GCodeToLayerPaths();
+                MakerbotInterpreter interpreter = new MakerbotInterpreter();
+                interpreter.AddListener(converter);
+
+                InterpretArgs interpArgs = new InterpretArgs();
+                interpreter.Interpret(gcode, interpArgs);
+
+                //MakerbotSettings settings = new MakerbotSettings();
+                //CalculateExtrusion calc = new CalculateExtrusion(converter.Paths, settings);
+                //calc.TestCalculation();
+
+                ViewPaths = converter.Paths;
+            }
+
+
+			View.SetPaths(ViewPaths);
+            MainWindow.Add(View);
 			MainWindow.KeyReleaseEvent += Window_KeyReleaseEvent;
 
 			// support drag-drop
@@ -145,6 +162,37 @@ namespace SliceViewer
             MainWindow.ShowAll();
 
             Gtk.Application.Run();
+        }
+
+
+
+
+        static string GenerateGCodeForMeshes(PrintMeshAssembly meshes)
+        {
+            // configure settings
+            MakerbotSettings settings = new MakerbotSettings();
+            settings.Shells = 2;
+
+            // slice meshes
+            MeshPlanarSlicer slicer = new MeshPlanarSlicer() {
+                LayerHeightMM = settings.LayerHeightMM
+            };
+            slicer.AddMeshes(meshes.Meshes);
+            PlanarSliceStack slices = slicer.Compute();
+
+            // run print generator
+            MakerbotPrintGenerator printGen = new MakerbotPrintGenerator(
+                meshes, slices, settings
+            );
+            printGen.Generate();
+            GCodeFile genGCode = printGen.Result;
+
+            string sWritePath = "../../../sample_output/generated.gcode";
+            StandardGCodeWriter writer = new StandardGCodeWriter();
+            using (StreamWriter w = new StreamWriter(sWritePath)) {
+                writer.WriteFile(genGCode, w);
+            }
+            return sWritePath;
         }
 
 

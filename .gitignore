@@ -49,3 +49,4 @@ dlpView/obj
 sample_output/*
 !/sample_output/gitkeepdir.txt
 
+.vs/
