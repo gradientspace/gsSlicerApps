@@ -245,9 +245,9 @@ namespace SliceViewer
 				View.ShowBelowLayer = !View.ShowBelowLayer;
 
 			} else if ( args.Event.Key == Gdk.Key.q ) {
-				SliceViewerTests.TestDGraph2();
-
-			}
+                //SliceViewerTests.TestDGraph2();
+                SliceViewerTests.TestOffset();
+            }
 		}
 
 

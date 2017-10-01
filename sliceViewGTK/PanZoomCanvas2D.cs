@@ -15,6 +15,8 @@ namespace gs
 		// this is a pixel-space translate
 		public Vector2f PixelTranslate = Vector2f.Zero;
 
+        public Vector2i PixelDimensions = Vector2i.Zero;
+
 		public PanZoomCanvas2D()
 		{
 			ExposeEvent += OnExpose;
@@ -47,8 +49,9 @@ namespace gs
 
 			int width = area.Allocation.Width;
 			int height = area.Allocation.Height;
+            PixelDimensions = new Vector2i(width, height);
 
-			AxisAlignedBox2d bounds = DrawingBounds;
+            AxisAlignedBox2d bounds = DrawingBounds;
 
 			double sx = (double)width / bounds.Width;
 			double sy = (double)height / bounds.Height;

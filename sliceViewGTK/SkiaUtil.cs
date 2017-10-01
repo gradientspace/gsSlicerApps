@@ -21,7 +21,7 @@ namespace gs
 			if ( Util.IsRunningOnMono() ) {
 				return new SKColor(r, g, b, a);
 			} else {
-				return new SKColor(b, g, r, a);
+				return new SKColor(r, g, b, a);
 			}
 		}
 

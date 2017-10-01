@@ -12,6 +12,8 @@ namespace SliceViewer
 		public bool ShowOpenEndpoints = true;
         public bool ShowTravels = true;
 
+        public bool ShowFillArea = true;
+
 		public enum NumberModes
 		{
 			NoNumbers,
@@ -78,9 +80,7 @@ namespace SliceViewer
 		}
 
 
-
-
-		Func<Vector2d, Vector2f> SceneXFormF = (v) => { return (Vector2f)v; };
+        Func<Vector2d, Vector2f> SceneXFormF = (v) => { return (Vector2f)v; };
 		Func<Vector2d, SKPoint> SceneToSkiaF = null;
 		void InitializeInternals()
 		{
@@ -103,6 +103,8 @@ namespace SliceViewer
 		}
 
 
+        float dimensionScale = 1.0f;
+
 		protected override void DrawScene(SKCanvas canvas, Func<Vector2d, Vector2f> ViewTransformF)
 		{
 			Random jitter = new Random(313377);
@@ -118,6 +120,9 @@ namespace SliceViewer
 				return ViewTransformF(pOrig);
 			};
 
+            // figure out dimension scaling factor
+            Vector2f a = SceneXFormF(Vector2d.Zero), b = SceneXFormF(Vector2d.AxisX);
+            dimensionScale = (b.x - a.x);
 
 			using (var paint = new SKPaint())
 			{
@@ -127,6 +132,11 @@ namespace SliceViewer
                 paint.Style = SKPaintStyle.Stroke;
 
 				DrawLayerPaths(Paths, canvas, paint);
+
+                if (ShowFillArea) {
+                    DrawFill(Paths, canvas); 
+                    //DrawFillOverlaps(Paths, canvas);
+                }
 
 				if (NumberMode == NumberModes.PathNumbers )
 					DrawPathLabels(Paths, canvas, paint);
@@ -222,14 +232,107 @@ namespace SliceViewer
 			};
 
 			ProcessLinearPaths(pathSetIn, drawPath3F);
-			
 		}
 
 
 
 
 
-		private void DrawPathLabels(PathSet pathSetIn, SKCanvas canvas, SKPaint paint) 
+
+
+        private void DrawFill(PathSet pathSetIn, SKCanvas baseCanvas)
+        {
+            SKColor fillColor = SkiaUtil.Color(255, 0, 255, 255);
+
+            SKRect bounds = baseCanvas.ClipBounds;
+
+            SKBitmap blitBitmap = new SKBitmap(PixelDimensions.x, PixelDimensions.y, SkiaUtil.ColorType(), SKAlphaType.Premul);
+            IntPtr len;
+            using (var skSurface = SKSurface.Create(blitBitmap.Info.Width, blitBitmap.Info.Height, SkiaUtil.ColorType(), SKAlphaType.Premul, blitBitmap.GetPixels(out len), blitBitmap.Info.RowBytes)) {
+                var canvas = skSurface.Canvas;
+
+                using (var paint = new SKPaint()) {
+                    paint.IsAntialias = true;
+                    paint.StrokeWidth = dimensionScale * 0.4f;
+                    paint.Style = SKPaintStyle.Stroke;
+                    paint.StrokeCap = SKStrokeCap.Round;
+                    paint.StrokeJoin = SKStrokeJoin.Round;
+                    paint.Color = fillColor;
+
+                    Action<LinearPath3<PathVertex>> drawPath3F = (polyPath) => {
+                        if (polyPath.Type != PathTypes.Deposition)
+                            return;
+                        Vector3d v0 = polyPath.Start.Position;
+                        byte layer_alpha = LayerFilterF(v0);
+                        if (layer_alpha != 255)
+                            return;
+                        SKPath path = MakePath(polyPath, SceneToSkiaF);
+                        canvas.DrawPath(path, paint);
+                    };
+
+                    ProcessLinearPaths(pathSetIn, drawPath3F);
+                }
+            }
+
+
+            SKPaint blitPaint = new SKPaint();
+            blitPaint.IsAntialias = false;
+            blitPaint.BlendMode = SKBlendMode.SrcOver;
+            blitPaint.Color = SkiaUtil.Color(0, 0, 0, 64);
+
+            baseCanvas.DrawBitmap(blitBitmap, 0, 0, blitPaint);
+        }
+
+
+
+
+
+        /// <summary>
+        /// Point of this function is to be same as DrawFill (ie draw 'tubes') but to draw
+        /// in such a way that overlap regions are highlighted. However it does not work yet,
+        /// need to draw continuous SKPaths as much as possible but break at direction changes.
+        /// </summary>
+        private void DrawFillOverlaps(PathSet pathSetIn, SKCanvas baseCanvas)
+        {
+            SKColor fillColor = SkiaUtil.Color(255, 0, 255, 64);
+
+            using (var paint = new SKPaint()) {
+                paint.IsAntialias = true;
+                paint.StrokeWidth = dimensionScale * 0.4f;
+                paint.Style = SKPaintStyle.Stroke;
+                paint.StrokeCap = SKStrokeCap.Round;
+                paint.StrokeJoin = SKStrokeJoin.Round;
+                paint.Color = fillColor;
+
+                Action<LinearPath3<PathVertex>> drawPath3F = (polyPath) => {
+                    if (polyPath.Type != PathTypes.Deposition)
+                        return;
+                    Vector3d v0 = polyPath.Start.Position;
+                    byte layer_alpha = LayerFilterF(v0);
+                    if (layer_alpha != 255)
+                        return;
+
+                    // draw each segment separately. results in lots of duplicate-circles, no good
+                    //for (int i = 1; i < polyPath.VertexCount; i++) {
+                    //    SKPoint a = SceneToSkiaF(polyPath[i - 1].Position.xy);
+                    //    SKPoint b = SceneToSkiaF(polyPath[i].Position.xy);
+                    //    baseCanvas.DrawLine(a.X, a.Y, b.X, b.Y, paint);
+                    //}
+
+                    // draw full path in one shot. Only shows overlaps between separate paths.
+                    SKPath path = MakePath(polyPath, SceneToSkiaF);
+                    baseCanvas.DrawPath(path, paint);
+                };
+
+                ProcessLinearPaths(pathSetIn, drawPath3F);
+            }
+        }
+
+
+
+
+
+        private void DrawPathLabels(PathSet pathSetIn, SKCanvas canvas, SKPaint paint) 
 		{
 			int counter = 1;
 

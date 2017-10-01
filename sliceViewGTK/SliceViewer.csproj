@@ -107,6 +107,10 @@
       <Project>{25DE77C9-14A4-4562-9A24-0BF1E612D9A9}</Project>
       <Name>gsGCode</Name>
     </ProjectReference>
+    <ProjectReference Include="..\gsSlicer\thirdparty\clipper_library\clipper_library.csproj">
+      <Project>{9b062971-a88e-4a3d-b3c9-12b78d15fa66}</Project>
+      <Name>clipper_library</Name>
+    </ProjectReference>
   </ItemGroup>
   <ItemGroup>
     <BootstrapperPackage Include=".NETFramework,Version=v4.5.2">
