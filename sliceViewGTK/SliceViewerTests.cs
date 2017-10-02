@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Gtk;
 using GLib;
 using g3;
@@ -31,9 +32,13 @@ namespace SliceViewer
 
             DGraph2 graph = new DGraph2();
             graph.AppendPolygon(offset.Outer);
-
             FilterSelfOverlaps(graph, 0.4f);
             //FilterSelfOverlaps(graph, 0.4f, false);
+
+            DGraph2 outer_graph = new DGraph2();
+            outer_graph.AppendPolygon(outer.Outer);
+            FilterSelfOverlaps(outer_graph, 0.4f);
+
 
             Window window = new Window("TestDGraph2");
             window.SetDefaultSize(600, 600);
@@ -41,7 +46,8 @@ namespace SliceViewer
 
             DebugViewCanvas view = new DebugViewCanvas();
             view.AddPolygon(origPoly, Colorf.Orange);
-            view.AddPolygon(outer, Colorf.Red);
+            //view.AddPolygon(outer, Colorf.Red);
+            view.AddGraph(outer_graph, Colorf.Red);
             view.AddGraph(graph, Colorf.Blue);
             window.Add(view);
             window.ShowAll();
@@ -62,8 +68,8 @@ namespace SliceViewer
             // segments filtered out, to measure self-distance
 
             if (bResample) {
-                SplitToTolerance(graph, overlapRadius / 2);
-                DecimateToTolerance(graph, overlapRadius / 4);
+                SplitToMaxEdgeLength(graph, overlapRadius / 2);
+                CollapseToMinEdgeLength(graph, overlapRadius / 3);
             }
 
             double dist_thresh = overlapRadius;
@@ -126,6 +132,10 @@ namespace SliceViewer
                         decimate_forward(vid, eid, graph, dist_thresh);
                 }
             }
+
+
+
+            CollapseFlatVertices(graph, 2.5);
 
         }
 
@@ -325,7 +335,7 @@ namespace SliceViewer
 			foreach (var h in poly.Holes)
 				graph.AppendPolygon(h);
 
-			SplitToTolerance(graph, fMergeThresh * 1.5);
+			SplitToMaxEdgeLength(graph, fMergeThresh * 1.5);
 
 			for (int i = 0; i < nSteps; ++i ) {
 
@@ -362,8 +372,8 @@ namespace SliceViewer
 				do {
 					joined = JoinInTolerance(graph, fMergeThresh);
 				} while (joined > 0);
-				DecimateToTolerance(graph, fMergeThresh);
-				SplitToTolerance(graph, fMergeThresh * 1.5);
+				CollapseToMinEdgeLength(graph, fMergeThresh);
+				SplitToMaxEdgeLength(graph, fMergeThresh * 1.5);
 			}
 
 			//SmoothPass(graph, 25, 0.1, fMergeThresh);
@@ -449,32 +459,142 @@ namespace SliceViewer
 
 
 
-		public static void DecimateToTolerance(DGraph2 graph, double fMinLen) {
+		public static void CollapseToMinEdgeLength(DGraph2 graph, double fMinLen) {
+            double sharp_threshold_deg = 140.0f;
+
 			double minLenSqr = fMinLen * fMinLen;
-			int NE = graph.MaxEdgeID;
 			bool done = false;
-			while (!done) {
+            int max_passes = 100;
+            int pass_count = 0;
+			while (done == false && pass_count++ < max_passes) {
 				done = true;
-				for (int eid = 0; eid < NE; ++eid) {
-					if (!graph.IsEdge(eid))
-						continue;
-					Index2i ev = graph.GetEdgeV(eid);
-					Vector2d va = graph.GetVertex(ev.a);
-					Vector2d vb = graph.GetVertex(ev.b);
-					double distSqr = va.DistanceSquared(vb);
-					if (distSqr < minLenSqr) {
-						DGraph2.EdgeCollapseInfo collapseInfo;
-						if (graph.CollapseEdge(ev.a, ev.b, out collapseInfo) == MeshResult.Ok) {
-							done = false;
-						}
-					}
-				}
+
+                // [RMS] do modulo-indexing here to avoid pathological cases where we do things like
+                // continually collapse a short edge adjacent to a long edge (which will result in crazy over-collapse)
+                int N = graph.MaxEdgeID;
+                const int nPrime = 31337;     // any prime will do...
+                int cur_eid = 0;
+                do {
+                    int eid = cur_eid;
+                    cur_eid = (cur_eid + nPrime) % N;
+
+                    if (!graph.IsEdge(eid))
+                        continue;
+                    Index2i ev = graph.GetEdgeV(eid);
+
+                    Vector2d va = graph.GetVertex(ev.a);
+                    Vector2d vb = graph.GetVertex(ev.b);
+                    double distSqr = va.DistanceSquared(vb);
+                    if (distSqr < minLenSqr) {
+
+                        int vtx_idx = -1;    // collapse to this vertex
+
+                        // check valences. want to preserve positions of non-valence-2
+                        int na = graph.GetVtxEdgeCount(ev.a);
+                        int nb = graph.GetVtxEdgeCount(ev.b);
+                        if (na != 2 && nb != 2)
+                            continue;
+                        if (na != 2)
+                            vtx_idx = 0;
+                        else if (nb != 2)
+                            vtx_idx = 1;
+
+                        // check opening angles. want to preserve sharp(er) angles
+                        if (vtx_idx == -1) {
+                            double opena = Math.Abs(opening_angle(graph, ev.a));
+                            double openb = Math.Abs(opening_angle(graph, ev.b));
+                            if (opena < sharp_threshold_deg && openb < sharp_threshold_deg)
+                                continue;
+                            else if (opena < sharp_threshold_deg)
+                                vtx_idx = 0;
+                            else if (openb < sharp_threshold_deg)
+                                vtx_idx = 1;
+                        }
+
+                        Vector2d newPos = (vtx_idx == -1) ? 0.5 * (va + vb) : ((vtx_idx == 0) ? va : vb);
+
+                        int keep = ev.a, remove = ev.b;
+                        if (vtx_idx == 1) {
+                            remove = ev.a; keep = ev.b;
+                        }
+
+                        DGraph2.EdgeCollapseInfo collapseInfo;
+                        if (graph.CollapseEdge(keep, remove, out collapseInfo) == MeshResult.Ok) {
+                            graph.SetVertex(collapseInfo.vKept, newPos);
+                            done = false;
+                        }
+                    }
+
+                } while (cur_eid != 0);
 			}
 		}
 
 
 
-		public static void SplitToTolerance(DGraph2 graph, double fMaxLen) {
+
+
+
+
+
+
+
+
+
+        public static void CollapseFlatVertices(DGraph2 graph, double fMaxDeviationDeg = 5)
+        {
+            bool done = false;
+            int max_passes = 200;
+            int pass_count = 0;
+            while (done == false && pass_count++ < max_passes) {
+                done = true;
+
+                // [RMS] do modulo-indexing here to avoid pathological cases where we do things like
+                // continually collapse a short edge adjacent to a long edge (which will result in crazy over-collapse)
+                int N = graph.MaxVertexID;
+                const int nPrime = 31337;     // any prime will do...
+                int cur_vid = 0;
+                do {
+                    int vid = cur_vid;
+                    cur_vid = (cur_vid + nPrime) % N;
+
+                    if (!graph.IsVertex(vid))
+                        continue;
+                    if (graph.GetVtxEdgeCount(vid) != 2)
+                        continue;
+
+                    double open = Math.Abs(opening_angle(graph, vid));
+                    if (open < 180 - fMaxDeviationDeg)
+                        continue;
+
+                    int eid = graph.GetVtxEdges(vid).First();
+
+                    Index2i ev = graph.GetEdgeV(eid);
+                    int other_v = (ev.a == vid) ? ev.b : ev.a;
+
+                    DGraph2.EdgeCollapseInfo collapseInfo;
+                    MeshResult result = graph.CollapseEdge(other_v, vid, out collapseInfo);
+                    if ( result == MeshResult.Ok) {
+                        done = false;
+                    } else {
+                        System.Console.WriteLine("wha?");
+                    }
+
+                } while (cur_vid != 0);
+            }
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+        public static void SplitToMaxEdgeLength(DGraph2 graph, double fMaxLen) {
 			List<int> queue = new List<int>();
 			int NE = graph.MaxEdgeID;
 			for (int eid = 0; eid < NE; ++eid) {
