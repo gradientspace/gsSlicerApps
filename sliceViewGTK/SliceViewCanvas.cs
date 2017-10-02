@@ -12,7 +12,7 @@ namespace SliceViewer
 		public bool ShowOpenEndpoints = true;
         public bool ShowTravels = true;
 
-        public bool ShowFillArea = true;
+        public bool ShowFillArea = false;
 
 		public enum NumberModes
 		{
