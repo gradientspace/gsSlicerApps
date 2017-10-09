@@ -140,8 +140,10 @@ namespace SliceViewer
 
 				if (NumberMode == NumberModes.PathNumbers )
 					DrawPathLabels(Paths, canvas, paint);
-			}
-		}
+
+                DrawLayerInfo(canvas, paint);
+            }
+        }
 
 
 
@@ -367,6 +369,15 @@ namespace SliceViewer
 
 			ProcessLinearPaths(pathSetIn, drawLabelF);
 		}
+
+
+
+        private void DrawLayerInfo(SKCanvas canvas, SKPaint paint)
+        {
+            string text = "Layer " + currentLayer.ToString();
+            paint.Color = SKColors.Black;
+            canvas.DrawText(text, 10, 10, paint);
+        }
 
 
 	}

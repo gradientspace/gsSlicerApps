@@ -30,14 +30,16 @@ namespace SliceViewer
             offsets = ClipperUtil.ComputeOffsetPolygon(outer, -0.4f, true);
             GeneralPolygon2d offset = offsets[0];
 
-            DGraph2 graph = new DGraph2();
-            graph.AppendPolygon(offset.Outer);
-            FilterSelfOverlaps(graph, 0.4f);
-            //FilterSelfOverlaps(graph, 0.4f, false);
+            PathOverlapRepair repair = new PathOverlapRepair() { OverlapRadius = 0.4f };
+            repair.Add(offset);
+            repair.Compute();
+            DGraph2 graph = repair.GetResultGraph();
 
-            DGraph2 outer_graph = new DGraph2();
-            outer_graph.AppendPolygon(outer.Outer);
-            FilterSelfOverlaps(outer_graph, 0.4f);
+
+            PathOverlapRepair outer_repair = new PathOverlapRepair() { OverlapRadius = 0.4f };
+            outer_repair.Add(outer);
+            outer_repair.Compute();
+            DGraph2 outer_graph = outer_repair.GetResultGraph();
 
 
             Window window = new Window("TestDGraph2");
@@ -54,245 +56,6 @@ namespace SliceViewer
 
         }
 
-
-
-
-
-        static void FilterSelfOverlaps(DGraph2 graph, double overlapRadius, bool bResample = true)
-        {
-            // [RMS] this tolerance business is not workign properly right now. The problem is
-            //  that decimator loses corners!
-
-            // To simplify the computation we are going to resample the curve so that no adjacent
-            // are within a given distance. Then we can use distance-to-segments, with the two adjacent
-            // segments filtered out, to measure self-distance
-
-            if (bResample) {
-                SplitToMaxEdgeLength(graph, overlapRadius / 2);
-                CollapseToMinEdgeLength(graph, overlapRadius / 3);
-            }
-
-            double dist_thresh = overlapRadius;
-            double sharp_thresh_deg = 20;
-
-            // 
-            // Step 1: disconnect paths at 'sharp' corners, and erode one side until
-            //   there is no overlap. We do this first because it guarantees we are
-            //   going to erode one side from sharp corner and not the other.
-            //
-
-            // find "sharp" turns
-            List<Vector2d> sharps = new List<Vector2d>();
-            foreach (int vid in graph.VertexIndices()) {
-                double open_angle = opening_angle(graph, vid);
-                if (open_angle == double.MaxValue)
-                    continue;
-                if ( open_angle < sharp_thresh_deg ) 
-                    sharps.Add(new Vector2d(vid, open_angle));
-            }
-
-            // sort by opening-angle
-            sharps.Sort((a, b) => { return (a.y < b.y) ? -1 : (a.y > b.y ? 1 : 0); });
-
-            // for each sharp vtx, pick a side and erode it until no-overlap vtx is found
-            foreach ( Vector2d sharp in sharps ) {
-                int vid = (int)sharp.x;
-                if (graph.IsVertex(vid) == false)
-                    continue;
-                int initial_eid = graph.GetVtxEdges(vid)[0];
-                decimate_forward(vid, initial_eid, graph, dist_thresh);
-            }
-
-
-            //
-            // Step 2: find any other possible self-overlaps and erode them.
-            //
-
-            // sort all vertices by opening angle. For any overlap, we can erode
-            // on either side. Prefer to erode on side with higher curvature.
-            List<Vector2d> remaining_v = new List<Vector2d>(graph.MaxVertexID);
-            foreach ( int vid in graph.VertexIndices()) {
-                double open_angle = opening_angle(graph, vid);
-                if (open_angle == double.MaxValue)
-                    continue;
-                remaining_v.Add(new Vector2d(vid, open_angle));
-            }
-            remaining_v.Sort((a, b) => { return (a.y < b.y) ? -1 : (a.y > b.y ? 1 : 0); });
-
-
-            // look for overlap vertices. When we find one, erode on both sides.
-            foreach (Vector2d vinfo in remaining_v) {
-                int vid = (int)vinfo.x;
-                if (graph.IsVertex(vid) == false)
-                    continue;
-                double dist = MinSelfSegDistance_Robust(vid, graph, 2*dist_thresh);
-                if (dist < dist_thresh) {
-                    List<int> nbrs = new List<int>(graph.GetVtxEdges(vid));
-                    foreach ( int eid in nbrs ) 
-                        decimate_forward(vid, eid, graph, dist_thresh);
-                }
-            }
-
-
-
-            CollapseFlatVertices(graph, 2.5);
-
-        }
-
-
-
-        static double opening_angle(DGraph2 graph, int vid)
-        {
-            if (graph.GetVtxEdgeCount(vid) != 2)
-                return double.MaxValue;
-
-            Index2i nbrv = Index2i.Zero;
-            int i = 0;
-            foreach (int nbrvid in graph.VtxVerticesItr(vid))    // [TODO] faster way to get these? Index4i return?
-                nbrv[i++] = nbrvid;
-
-            Vector2d v = graph.GetVertex(vid);
-            double open_angle = Vector2d.AngleD(
-                (graph.GetVertex(nbrv.a) - v).Normalized,
-                (graph.GetVertex(nbrv.b) - v).Normalized);
-            return open_angle;
-        }
-
-
-
-        static void decimate_forward(int start_vid, int first_eid, DGraph2 graph, double dist_thresh)
-        {
-            int cur_eid = first_eid;
-            int cur_vid = start_vid;
-
-            bool stop = false;
-            while (!stop) {
-                Index2i nextinfo = next_edge_and_vtx(cur_eid, cur_vid, graph);
-                if (nextinfo == Index2i.Max)
-                    break;
-
-                graph.RemoveEdge(cur_eid, true);
-                cur_eid = nextinfo.a;
-                cur_vid = nextinfo.b;
-
-                //double dist = MinSelfSegDistance(cur_vid, graph);
-                double dist = MinSelfSegDistance_Robust(cur_vid, graph, 2 * dist_thresh);
-                if (dist > dist_thresh)
-                    stop = true;
-            }
-
-        }
-
-
-        static Index2i next_edge_and_vtx(int eid, int prev_vid, DGraph2 graph)
-        {
-            Index2i ev = graph.GetEdgeV(eid);
-            int next_vid = (ev.a == prev_vid) ? ev.b : ev.a;
-
-            if (graph.GetVtxEdgeCount(next_vid) != 2)
-                return Index2i.Max;
-
-            foreach ( int next_eid in graph.VtxEdgesItr(next_vid)) {
-                if (next_eid != eid)
-                    return new Index2i(next_eid, next_vid);
-            }
-            return Index2i.Max;
-}
-
-
-
-        static double MinSelfVtxDistance(int vid, DGraph2 graph)
-        {
-            Vector2d pos = graph.GetVertex(vid);
-            List<int> nbrs = new List<int>(graph.VtxVerticesItr(vid));
-            nbrs.Add(vid);
-
-            double min_dist_sqr = double.MaxValue;
-            foreach ( int id in graph.VertexIndices()) {
-                Vector2d v = graph.GetVertex(id);
-                double d = v.DistanceSquared(pos);
-                if ( d < min_dist_sqr && nbrs.Contains(id) == false ) {
-                    min_dist_sqr = d;
-                }
-            }
-
-            return Math.Sqrt(min_dist_sqr);
-        }
-
-
-
-        static double MinSelfSegDistance(int vid, DGraph2 graph)
-        {
-            Vector2d pos = graph.GetVertex(vid);
-
-            double min_dist_sqr = double.MaxValue;
-            foreach ( int eid in graph.EdgeIndices()) {
-                Index2i ev = graph.GetEdgeV(eid);
-                if (ev.a == vid || ev.b == vid)
-                    continue;
-
-                Segment2d seg = new Segment2d(graph.GetVertex(ev.a), graph.GetVertex(ev.b));
-                double d = seg.DistanceSquared(pos);
-                if (d < min_dist_sqr) {
-                    min_dist_sqr = d;
-                }
-            }
-
-            return Math.Sqrt(min_dist_sqr);
-        }
-
-
-
-        static double MinSelfSegDistance_Robust(int vid, DGraph2 graph, double self_radius)
-        {
-            Vector2d pos = graph.GetVertex(vid);
-
-            List<int> ignore_edges = FindConnectedEdgesInRadius(vid, graph, self_radius);
-
-            double min_dist_sqr = double.MaxValue;
-            foreach (int eid in graph.EdgeIndices()) {
-                Index2i ev = graph.GetEdgeV(eid);
-                if (ev.a == vid || ev.b == vid)
-                    continue;
-                if (ignore_edges.Contains(eid))
-                    continue;
-
-                Segment2d seg = new Segment2d(graph.GetVertex(ev.a), graph.GetVertex(ev.b));
-                double d = seg.DistanceSquared(pos);
-                if (d < min_dist_sqr) {
-                    min_dist_sqr = d;
-                }
-            }
-
-            return Math.Sqrt(min_dist_sqr);
-        }
-
-
-
-        static List<int> FindConnectedEdgesInRadius(int vid, DGraph2 graph, double rad)
-        {
-            Vector2d pos = graph.GetVertex(vid);
-
-            List<int> edges = new List<int>();
-
-            foreach ( int eid in graph.VtxEdgesItr(vid) ) {
-                edges.Add(eid);
-
-                Index2i next = new Index2i(eid, vid);
-                while(true) {
-                    next = next_edge_and_vtx(next.a, next.b, graph);
-                    if (next.a == eid)
-                        goto looped;   // looped! we can exit now w/o next step of outer loop
-                    if (next == Index2i.Max)
-                        break;
-                    edges.Add(next.a);
-                    if (pos.Distance(graph.GetVertex(next.b)) > rad)
-                        break;
-                }
-            }
-            looped:
-            return edges;
-        }
 
 
 
@@ -313,11 +76,12 @@ namespace SliceViewer
 			double offset = 2;
 			double spacing = 0.2;
 			int nsteps = (int)(offset / step_size);
-			DGraph2 graph = Offset(poly, offset, nsteps, spacing);
+			DGraph2 graph = Offset(poly, offset, nsteps, spacing, true);
 
 
+            DGraph2Util.Curves c = DGraph2Util.ExtractCurves(graph);
 
-			DebugViewCanvas view = new DebugViewCanvas();
+            DebugViewCanvas view = new DebugViewCanvas();
 			view.AddPolygon(poly, Colorf.Orange);
 			view.AddGraph(graph, Colorf.Blue);
 			window.Add(view);
@@ -327,7 +91,7 @@ namespace SliceViewer
 
 
 
-		public static DGraph2 Offset(GeneralPolygon2d poly, double fOffset, int nSteps, double fMergeThresh) {
+		public static DGraph2 Offset(GeneralPolygon2d poly, double fOffset, int nSteps, double fMergeThresh, bool bResolveOverlaps) {
 			double dt = fOffset / nSteps;
 
 			DGraph2 graph = new DGraph2();
@@ -367,7 +131,7 @@ namespace SliceViewer
 					graph.SetVertex(vid, new_pos);
 				}
 
-				SmoothPass(graph, 5, 0.2, fMergeThresh / 2);
+				SmoothPass(graph, 25, 0.2, fMergeThresh / 2);
 				int joined = 0;
 				do {
 					joined = JoinInTolerance(graph, fMergeThresh);
@@ -376,10 +140,50 @@ namespace SliceViewer
 				SplitToMaxEdgeLength(graph, fMergeThresh * 1.5);
 			}
 
-			//SmoothPass(graph, 25, 0.1, fMergeThresh);
+            //SmoothPass(graph, 25, 0.1, fMergeThresh);
+
+            if (bResolveOverlaps) {
+                List<int> junctions = new List<int>();
+                foreach (int vid in graph.VertexIndices()) {
+                    if (graph.GetVtxEdgeCount(vid) > 2)
+                        junctions.Add(vid);
+                }
+                foreach (int vid in junctions) {
+                    Vector2d v = graph.GetVertex(vid);
+                    int[] nbr_verts = graph.VtxVerticesItr(vid).ToArray();
+                    Index2i best_aligned = Index2i.Max; double max_angle = 0;
+                    for (int i = 0; i < nbr_verts.Length; ++i) {
+                        for (int j = i + 1; j < nbr_verts.Length; ++j) {
+                            double angle = Vector2d.AngleD(
+                                (graph.GetVertex(nbr_verts[i]) - v).Normalized,
+                                (graph.GetVertex(nbr_verts[j]) - v).Normalized);
+                            angle = Math.Abs(angle);
+                            if (angle > max_angle) {
+                                max_angle = angle;
+                                best_aligned = new Index2i(nbr_verts[i], nbr_verts[j]);
+                            }
+                        }
+                    }
+
+                    for (int k = 0; k < nbr_verts.Length; ++k) {
+                        if (nbr_verts[k] == best_aligned.a || nbr_verts[k] == best_aligned.b)
+                            continue;
+                        int eid = graph.FindEdge(vid, nbr_verts[k]);
+                        graph.RemoveEdge(eid, true);
+                        if (graph.IsVertex(nbr_verts[k])) {
+                            Vector2d newpos = Vector2d.Lerp(graph.GetVertex(nbr_verts[k]), v, 0.99);
+                            int newv = graph.AppendVertex(newpos);
+                            graph.AppendEdge(nbr_verts[k], newv);
+                        }
+                    }
+                }
+
+                PathOverlapRepair repair = new PathOverlapRepair(graph);
+                repair.Compute();
+            }
 
 
-			return graph;
+            return graph;
 		}
 
 
@@ -501,8 +305,8 @@ namespace SliceViewer
 
                         // check opening angles. want to preserve sharp(er) angles
                         if (vtx_idx == -1) {
-                            double opena = Math.Abs(opening_angle(graph, ev.a));
-                            double openb = Math.Abs(opening_angle(graph, ev.b));
+                            double opena = Math.Abs(graph.OpeningAngle(ev.a));
+                            double openb = Math.Abs(graph.OpeningAngle(ev.b));
                             if (opena < sharp_threshold_deg && openb < sharp_threshold_deg)
                                 continue;
                             else if (opena < sharp_threshold_deg)
@@ -562,7 +366,7 @@ namespace SliceViewer
                     if (graph.GetVtxEdgeCount(vid) != 2)
                         continue;
 
-                    double open = Math.Abs(opening_angle(graph, vid));
+                    double open = Math.Abs(graph.OpeningAngle(vid));
                     if (open < 180 - fMaxDeviationDeg)
                         continue;
 

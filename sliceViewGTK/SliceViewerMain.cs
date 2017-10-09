@@ -224,29 +224,35 @@ namespace SliceViewer
 
 		private static void Window_KeyReleaseEvent(object sender, KeyReleaseEventArgs args)
 		{
-			if (args.Event.Key == Gdk.Key.Up) {
-				if ((args.Event.State & Gdk.ModifierType.ShiftMask) != 0)
-					View.CurrentLayer = View.CurrentLayer + 10;
-				else
-					View.CurrentLayer = View.CurrentLayer + 1;
-			} else if (args.Event.Key == Gdk.Key.Down) {
-				if ((args.Event.State & Gdk.ModifierType.ShiftMask) != 0)
-					View.CurrentLayer = View.CurrentLayer - 10;
-				else
-					View.CurrentLayer = View.CurrentLayer - 1;
+            if (args.Event.Key == Gdk.Key.Up) {
+                if ((args.Event.State & Gdk.ModifierType.ShiftMask) != 0)
+                    View.CurrentLayer = View.CurrentLayer + 10;
+                else
+                    View.CurrentLayer = View.CurrentLayer + 1;
+            } else if (args.Event.Key == Gdk.Key.Down) {
+                if ((args.Event.State & Gdk.ModifierType.ShiftMask) != 0)
+                    View.CurrentLayer = View.CurrentLayer - 10;
+                else
+                    View.CurrentLayer = View.CurrentLayer - 1;
 
-			} else if (args.Event.Key == Gdk.Key.n) {
-				if (View.NumberMode == SliceViewCanvas.NumberModes.NoNumbers)
-					View.NumberMode = SliceViewCanvas.NumberModes.PathNumbers;
-				else
-					View.NumberMode = SliceViewCanvas.NumberModes.NoNumbers;
+            } else if (args.Event.Key == Gdk.Key.n) {
+                if (View.NumberMode == SliceViewCanvas.NumberModes.NoNumbers)
+                    View.NumberMode = SliceViewCanvas.NumberModes.PathNumbers;
+                else
+                    View.NumberMode = SliceViewCanvas.NumberModes.NoNumbers;
 
-			} else if (args.Event.Key == Gdk.Key.b) {
+            } else if ( args.Event.Key == Gdk.Key.w ) {
+                View.ShowFillArea = !View.ShowFillArea;
+
+            } else if (args.Event.Key == Gdk.Key.t) {
+                View.ShowTravels = !View.ShowTravels;
+
+            } else if (args.Event.Key == Gdk.Key.b) {
 				View.ShowBelowLayer = !View.ShowBelowLayer;
 
 			} else if ( args.Event.Key == Gdk.Key.q ) {
-                //SliceViewerTests.TestDGraph2();
-                SliceViewerTests.TestOffset();
+                SliceViewerTests.TestDGraph2();
+                //SliceViewerTests.TestOffset();
             }
 		}
 
