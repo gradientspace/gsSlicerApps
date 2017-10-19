@@ -18,27 +18,62 @@ namespace SliceViewer
 			window.SetDefaultSize(600, 600);
 			window.SetPosition(WindowPosition.Center);
 
-			GeneralPolygon2d poly = new GeneralPolygon2d(
-				Polygon2d.MakeCircle(10, 32));
-			Polygon2d hole = Polygon2d.MakeCircle(5, 32);
-			hole.Translate(new Vector2d(2, 0));
-			hole.Reverse();
-			poly.AddHole(hole);
-
-			double step_size = 0.2;
-			double offset = 2;
-			double spacing = 0.2;
-			int nsteps = (int)(offset / step_size);
-			nsteps += nsteps / 2;
-			DGraph2 graph = Offset(poly, offset, nsteps, spacing, false);
-
-
-            DGraph2Util.Curves c = DGraph2Util.ExtractCurves(graph);
-
             DebugViewCanvas view = new DebugViewCanvas();
-			view.AddPolygon(poly, Colorf.Black);
-			view.AddGraph(graph, Colorf.Red);
-			window.Add(view);
+
+            GeneralPolygon2d poly = new GeneralPolygon2d(
+				Polygon2d.MakeCircle(10, 32));
+
+			//Polygon2d hole = Polygon2d.MakeCircle(5, 32);
+			//hole.Translate(new Vector2d(2, 0));
+			//hole.Reverse();
+			//poly.AddHole(hole);
+
+            Polygon2d hole2 = Polygon2d.MakeCircle(1, 32);
+            hole2.Translate(-6 * Vector2d.AxisX);
+            hole2.Reverse();
+            poly.AddHole(hole2);
+
+            Polygon2d hole3 = Polygon2d.MakeCircle(1, 32);
+            hole3.Translate(-6 * Vector2d.One);
+            hole3.Reverse();
+            poly.AddHole(hole3);
+
+            //Polygon2d hole4 = Polygon2d.MakeCircle(1, 32);
+            //hole4.Translate(7 * Vector2d.AxisY);
+            //hole4.Reverse();
+            //poly.AddHole(hole4);
+
+            view.AddPolygon(poly, Colorf.Black);
+
+            double step_size = 0.2;
+            double spacing = 0.2;
+
+            //double[] offsets = new double[] { 0.5, 1, 1.5, 2, 2.5 };
+            double[] offsets = new double[] { 6 };
+
+            foreach (double offset in offsets) {
+                int nsteps = (int)(offset / step_size);
+                nsteps += nsteps / 2;
+                DGraph2 graph = Offset(poly, offset, nsteps, spacing, false);
+                DGraph2Util.Curves c = DGraph2Util.ExtractCurves(graph);
+                view.AddGraph(graph, Colorf.Red);
+            }
+
+
+            int[] counts = new int[] { 3, 5, 6, 10, 11 };
+            foreach (int NV in counts) {
+                Polygon2d p0 = Polygon2d.MakeCircle(10, NV);
+                Polygon2dBoxTree tree = new Polygon2dBoxTree(p0);
+
+                Vector2d pt = Vector2d.Zero;
+                int poly_nearseg; double poly_neart;
+                double poly_dist = p0.DistanceSquared(pt, out poly_nearseg, out poly_neart);
+                int tree_nearseg; double tree_neart;
+                double tree_dist = tree.SquaredDistance(pt, out tree_nearseg, out tree_neart);
+            }
+
+
+            window.Add(view);
 			window.ShowAll();
 		}
 
@@ -46,9 +81,12 @@ namespace SliceViewer
 
 
 		static DVector<Vector2d> offset_cache;
+        static DVector<Vector2d> collapse_cache;
+        static GeneralPolygon2dBoxTree poly_tree;
+        static PointGrid2d<int> graph_cache;
 
-
-		public static DGraph2 Offset(GeneralPolygon2d poly, double fOffset, int nSteps, double fMergeThresh, bool bResolveOverlaps) {
+        public static DGraph2 Offset(GeneralPolygon2d poly, double fOffset, int nSteps, double fMergeThresh, bool bResolveOverlaps)
+        {
 			double dt = fOffset / nSteps;
 
 			DGraph2 graph = new DGraph2();
@@ -60,41 +98,48 @@ namespace SliceViewer
 
 			offset_cache = new DVector<Vector2d>();
 			offset_cache.resize(graph.VertexCount*2);
+            poly_tree = new GeneralPolygon2dBoxTree(poly);
+            collapse_cache = new DVector<Vector2d>();
+            collapse_cache.resize(graph.VertexCount * 2);
 
-			LocalProfiler p = new LocalProfiler();
+            //graph_cache = new PointGrid2d<int>(poly.Bounds.MaxDim / 64);
+            //foreach (int vid in graph.VertexIndices())
+            //    graph_cache.InsertPoint(vid, graph.GetVertex(vid));
+
+            LocalProfiler p = new LocalProfiler();
 
 			for (int i = 0; i < nSteps; ++i ) {
 
 				p.Start("offset");
-				 
-				foreach ( int vid in graph.VertexIndices() ) {
-					Vector2d cur_pos = graph.GetVertex(vid);
-					Vector2d new_pos = compute_offset_step(cur_pos, poly, fOffset, dt);
 
-					Vector2d new_pos_2 = compute_offset_step(new_pos, poly, fOffset, dt);
+                gParallel.ForEach(graph.VertexIndices(), (vid) => {
+                    Vector2d cur_pos = graph.GetVertex(vid);
+                    Vector2d new_pos = compute_offset_step(cur_pos, poly, fOffset, dt);
+                    Vector2d new_pos_2 = compute_offset_step(new_pos, poly, fOffset, dt);
 
-					new_pos = Vector2d.Lerp(new_pos, new_pos_2, 0.5);
+                    new_pos = Vector2d.Lerp(new_pos, new_pos_2, 0.5);
 
-					graph.SetVertex(vid, new_pos);
-				}
+                    graph.SetVertex(vid, new_pos);
+                });
 
 				p.StopAndAccumulate("offset");
 				p.Start("smooth");
 
-				SmoothPass(graph, 25, 0.2, fMergeThresh / 2);
+				SmoothPass(graph, 5, 0.75, fMergeThresh / 2);
 
 				p.StopAndAccumulate("smooth");
 				p.Start("join");
 
 				int joined = 0;
 				do {
-					joined = JoinInTolerance(graph, fMergeThresh);
-				} while (joined > 0);
+                    //joined = JoinInTolerance(graph, fMergeThresh);
+                    joined = JoinInTolerance_Parallel(graph, fMergeThresh);
+                } while (joined > 0);
 
 				p.StopAndAccumulate("join");
 				p.Start("refine");
 
-				CollapseToMinEdgeLength(graph, fMergeThresh);
+				CollapseToMinEdgeLength(graph, fMergeThresh * 0.75f);
 				SplitToMaxEdgeLength(graph, fMergeThresh * 1.5);
 
 				p.StopAndAccumulate("refine");
@@ -155,9 +200,11 @@ namespace SliceViewer
 		public static Vector2d compute_offset_step(Vector2d cur_pos, GeneralPolygon2d poly, double fTargetOffset, double stepSize) {
 
 			int iHole, iSeg; double segT;
-			double distSqr =
-				poly.DistanceSquared(cur_pos, out iHole, out iSeg, out segT);
-			double dist = Math.Sqrt(distSqr);
+            double distSqr =
+                //poly.DistanceSquared(cur_pos, out iHole, out iSeg, out segT);
+                poly_tree.DistanceSquared(cur_pos, out iHole, out iSeg, out segT);
+
+            double dist = Math.Sqrt(distSqr);
 			Vector2d normal = poly.GetNormal(iSeg, segT, iHole);
 
 			double step = stepSize;
@@ -183,30 +230,31 @@ namespace SliceViewer
 			int NV = graph.MaxVertexID;
 			DVector<Vector2d> smoothedV = offset_cache;
 			if (smoothedV.size < NV)
-				smoothedV.resize(NV+10);
+				smoothedV.resize(NV);
 
 			for (int pi = 0; pi < passes; ++pi) {
-				for (int vid = 0; vid < NV; ++vid) {
-					if (!graph.IsVertex(vid))
-						continue;
-					Vector2d v = graph.GetVertex(vid);
-					Vector2d c = Vector2d.Zero;
-					int n = 0;
-					foreach (int vnbr in graph.VtxVerticesItr(vid)) {
-						c += graph.GetVertex(vnbr);
-						n++;
-					}
-					if (n >= 2) {
-						c /= n;
-						Vector2d dv = (smooth_alpha) * (c - v);
-						if (dv.LengthSquared > max_move_sqr) {
-							double d = dv.Normalize();
-							dv *= max_move;
-						}
-						v += dv;
-					}
-					smoothedV[vid] = v;
-				}
+
+                gParallel.ForEach(Interval1i.Range(NV), (vid) => {
+                    if (!graph.IsVertex(vid))
+                        return;
+                    Vector2d v = graph.GetVertex(vid);
+                    Vector2d c = Vector2d.Zero;
+                    int n = 0;
+                    foreach (int vnbr in graph.VtxVerticesItr(vid)) {
+                        c += graph.GetVertex(vnbr);
+                        n++;
+                    }
+                    if (n >= 2) {
+                        c /= n;
+                        Vector2d dv = (smooth_alpha) * (c - v);
+                        if (dv.LengthSquared > max_move_sqr) {
+                            double d = dv.Normalize();
+                            dv *= max_move;
+                        }
+                        v += dv;
+                    }
+                    smoothedV[vid] = v;
+                });
 
 				for (int vid = 0; vid < NV; ++vid) {
 					if (graph.IsVertex(vid))
@@ -230,8 +278,11 @@ namespace SliceViewer
 
 				int bNearest = -1;
 				double nearDistSqr = double.MaxValue;
-				for (int b = a + 1; b < NV; ++b) {
-					if (!graph.IsVertex(b))
+                // THIS IS WRONG we can't only search ahead!
+                // ACTUALLY we can but we will miss some collapses (.)
+                for (int b = a + 1; b < NV; ++b) {
+                //for (int b = 0; b < NV; ++b) {
+                    if ( b == a || graph.IsVertex(b) == false)
 						continue;
 					double distsqr = va.DistanceSquared(graph.GetVertex(b));
 					if (distsqr < mergeSqr && distsqr < nearDistSqr) {
@@ -254,7 +305,61 @@ namespace SliceViewer
 
 
 
-		public static void CollapseToMinEdgeLength(DGraph2 graph, double fMinLen) {
+
+        public static int JoinInTolerance_Parallel(DGraph2 graph, double fMergeDist)
+        {
+            double mergeSqr = fMergeDist * fMergeDist;
+
+            int NV = graph.MaxVertexID;
+            if ( collapse_cache.size < NV )
+                collapse_cache.resize(NV);
+
+            gParallel.ForEach( Interval1i.Range(NV), (a) => {
+                collapse_cache[a] = new Vector2d(-1, double.MaxValue);
+                if (!graph.IsVertex(a))
+                    return;
+
+                Vector2d va = graph.GetVertex(a);
+
+                int bNearest = -1;
+                double nearDistSqr = double.MaxValue;
+                for (int b = a + 1; b < NV; ++b) {
+                    if (b == a || graph.IsVertex(b) == false)
+                        continue;
+                    double distsqr = va.DistanceSquared(graph.GetVertex(b));
+                    if (distsqr < mergeSqr && distsqr < nearDistSqr) {
+                        if (graph.FindEdge(a, b) == DGraph2.InvalidID) {
+                            nearDistSqr = distsqr;
+                            bNearest = b;
+                        }
+                    }
+                }
+                if (bNearest != -1)
+                    collapse_cache[a] = new Vector2d(bNearest, nearDistSqr);
+            });
+
+            // [TODO] sort
+
+            int merged = 0;
+            for (int a = 0; a < NV; ++a) {
+                if (collapse_cache[a].x == -1)
+                    continue;
+
+                int bNearest = (int)collapse_cache[a].x;
+
+                int eid = graph.AppendEdge(a, bNearest);
+                DGraph2.EdgeCollapseInfo collapseInfo;
+                graph.CollapseEdge(bNearest, a, out collapseInfo);
+                merged++;
+            }
+            return merged;
+        }
+
+
+
+
+
+        public static void CollapseToMinEdgeLength(DGraph2 graph, double fMinLen) {
             double sharp_threshold_deg = 140.0f;
 
 			double minLenSqr = fMinLen * fMinLen;
@@ -421,6 +526,105 @@ namespace SliceViewer
 				}				
 			}
 		}
+
+
+
+
+
+
+        public class PointGrid2d<T>
+        {
+            Dictionary<Vector2i, List<T>> Hash;
+            ScaleGridIndexer2 Indexer;
+
+            public PointGrid2d(double cellSize)
+            {
+                Hash = new Dictionary<Vector2i, List<T>>();
+                Indexer = new ScaleGridIndexer2() { CellSize = cellSize };
+            }
+
+
+            public void InsertPoint(T value, Vector2d pos)
+            {
+                Vector2i idx = Indexer.ToGrid(pos);
+                insert_point(value, idx);
+            }
+            void insert_point(T value, Vector2i idx)
+            {
+                List<T> values;
+                if (Hash.TryGetValue(idx, out values)) {
+                    values.Add(value);
+                } else {
+                    Hash[idx] = new List<T>() { value };
+                }
+            }
+
+
+            public bool RemovePoint(T value, Vector2d pos)
+            {
+                Vector2i idx = Indexer.ToGrid(pos);
+                return remove_point(value, idx);
+            }
+            bool remove_point(T value, Vector2i idx)
+            {
+                List<T> values;
+                if (Hash.TryGetValue(idx, out values)) {
+                    return values.Remove(value);
+                } else
+                    return false;            }
+
+
+            public void UpdatePoint(T value, Vector2d old_pos, Vector2d new_pos)
+            {
+                Vector2i old_idx = Indexer.ToGrid(old_pos);
+                Vector2i new_idx = Indexer.ToGrid(new_pos);
+                if (old_idx == new_idx)
+                    return;
+                bool ok = remove_point(value, old_idx);
+                if (!ok)
+                    throw new Exception("PointGrid2d.UpdatePoint: point " + value.ToString() + " was not in grid!");
+                insert_point(value, new_idx);
+                return;
+            }
+
+
+            public KeyValuePair<T,double> FindNearestInRadius(Vector2d query_pt, double radius, Func<T, double> distF, Func<T, bool> ignoreF )
+            {
+                Vector2i min_idx = Indexer.ToGrid(query_pt - radius * Vector2d.One);
+                Vector2i max_idx = Indexer.ToGrid(query_pt + radius * Vector2d.One);
+
+                double min_dist = double.MaxValue;
+                T nearest = default(T);
+
+                for ( int yi = min_idx.y; yi <= max_idx.y; yi++ ) {
+                    for ( int xi = min_idx.x; xi <= max_idx.x; xi++ ) {
+                        Vector2i idx = new Vector2i(xi, yi);
+                        List<T> values;
+                        if (Hash.TryGetValue(idx, out values) == false)
+                            continue;
+                        foreach ( T value in values ) {
+                            if ( ignoreF(value) )
+                                continue;
+                            double dist = distF(value);
+                            if ( dist < radius && dist < min_dist ) {
+                                nearest = value;
+                                min_dist = dist;
+                            }
+                        }
+                    }
+                }
+
+                return new KeyValuePair<T, double>(nearest, min_dist);
+            }
+
+
+        }
+
+
+
+
+ 
+
 
 
 	}
