@@ -11,53 +11,6 @@ namespace SliceViewer
 	public static class SliceViewerTests
 	{
 
-        public static void TestOffset()
-        {
-            DMesh3 mesh = StandardMeshReader.ReadMesh("../../../sample_files/thinwall2.obj");
-            MeshUtil.ScaleMesh(mesh, Frame3f.Identity, 1.1f * Vector3f.One);
-            PrintMeshAssembly meshes = new PrintMeshAssembly();
-            meshes.Meshes.Add(mesh);
-            MeshPlanarSlicer slicer = new MeshPlanarSlicer();
-            slicer.AddMeshes(meshes.Meshes);
-            PlanarSliceStack slices = slicer.Compute();
-            GeneralPolygon2d origPoly = slices[0].Solids[0];
-
-            int k = 5;
-            origPoly.Outer[k] = origPoly.Outer[k] + 4.6 * Vector2d.AxisY;
-
-            List<GeneralPolygon2d> offsets = ClipperUtil.ComputeOffsetPolygon(origPoly, -0.2f, true);
-            GeneralPolygon2d outer = offsets[0];
-            offsets = ClipperUtil.ComputeOffsetPolygon(outer, -0.4f, true);
-            GeneralPolygon2d offset = offsets[0];
-
-            PathOverlapRepair repair = new PathOverlapRepair() { OverlapRadius = 0.4f };
-            repair.Add(offset);
-            repair.Compute();
-            DGraph2 graph = repair.GetResultGraph();
-
-
-            PathOverlapRepair outer_repair = new PathOverlapRepair() { OverlapRadius = 0.4f };
-            outer_repair.Add(outer);
-            outer_repair.Compute();
-            DGraph2 outer_graph = outer_repair.GetResultGraph();
-
-
-            Window window = new Window("TestDGraph2");
-            window.SetDefaultSize(600, 600);
-            window.SetPosition(WindowPosition.Center);
-
-            DebugViewCanvas view = new DebugViewCanvas();
-            view.AddPolygon(origPoly, Colorf.Orange);
-            //view.AddPolygon(outer, Colorf.Red);
-            view.AddGraph(outer_graph, Colorf.Red);
-            view.AddGraph(graph, Colorf.Blue);
-            window.Add(view);
-            window.ShowAll();
-
-        }
-
-
-
 
         public static void TestDGraph2()
 		{
@@ -76,19 +29,23 @@ namespace SliceViewer
 			double offset = 2;
 			double spacing = 0.2;
 			int nsteps = (int)(offset / step_size);
-			DGraph2 graph = Offset(poly, offset, nsteps, spacing, true);
+			nsteps += nsteps / 2;
+			DGraph2 graph = Offset(poly, offset, nsteps, spacing, false);
 
 
             DGraph2Util.Curves c = DGraph2Util.ExtractCurves(graph);
 
             DebugViewCanvas view = new DebugViewCanvas();
-			view.AddPolygon(poly, Colorf.Orange);
-			view.AddGraph(graph, Colorf.Blue);
+			view.AddPolygon(poly, Colorf.Black);
+			view.AddGraph(graph, Colorf.Red);
 			window.Add(view);
 			window.ShowAll();
 		}
 
 
+
+
+		static DVector<Vector2d> offset_cache;
 
 
 		public static DGraph2 Offset(GeneralPolygon2d poly, double fOffset, int nSteps, double fMergeThresh, bool bResolveOverlaps) {
@@ -101,44 +58,49 @@ namespace SliceViewer
 
 			SplitToMaxEdgeLength(graph, fMergeThresh * 1.5);
 
+			offset_cache = new DVector<Vector2d>();
+			offset_cache.resize(graph.VertexCount*2);
+
+			LocalProfiler p = new LocalProfiler();
+
 			for (int i = 0; i < nSteps; ++i ) {
 
+				p.Start("offset");
+				 
 				foreach ( int vid in graph.VertexIndices() ) {
 					Vector2d cur_pos = graph.GetVertex(vid);
-					int iHole, iSeg; double segT;
-					double distSqr =
-						poly.DistanceSquared(cur_pos, out iHole, out iSeg, out segT);
-					double dist = Math.Sqrt(distSqr);
-					Vector2d normal = poly.GetNormal(iSeg, segT, iHole);
+					Vector2d new_pos = compute_offset_step(cur_pos, poly, fOffset, dt);
 
-					// sign??
-					//Vector2d nearPt = poly.PointAt(iSeg, segT, iHole);
-					//double dir_dot = (cur_pos - nearPt).Dot(normal);
-					//double sign = (dir_dot == 0) ? 1 : Math.Sin(dir_dot);
+					Vector2d new_pos_2 = compute_offset_step(new_pos, poly, fOffset, dt);
 
+					new_pos = Vector2d.Lerp(new_pos, new_pos_2, 0.5);
 
-					// somehow need to reduce step size as we converge on zero.
-					// 
-
-					double step = dt;
-					if (dist > fOffset) {
-						step = Math.Max(fOffset - dist, -step);
-					} else {
-						step = Math.Min(fOffset-dist, step);
-					}
-
-					Vector2d new_pos = cur_pos - step * normal;
 					graph.SetVertex(vid, new_pos);
 				}
 
+				p.StopAndAccumulate("offset");
+				p.Start("smooth");
+
 				SmoothPass(graph, 25, 0.2, fMergeThresh / 2);
+
+				p.StopAndAccumulate("smooth");
+				p.Start("join");
+
 				int joined = 0;
 				do {
 					joined = JoinInTolerance(graph, fMergeThresh);
 				} while (joined > 0);
+
+				p.StopAndAccumulate("join");
+				p.Start("refine");
+
 				CollapseToMinEdgeLength(graph, fMergeThresh);
 				SplitToMaxEdgeLength(graph, fMergeThresh * 1.5);
+
+				p.StopAndAccumulate("refine");
 			}
+
+			System.Console.WriteLine(p.AllAccumulatedTimes());
 
             //SmoothPass(graph, 25, 0.1, fMergeThresh);
 
@@ -188,11 +150,40 @@ namespace SliceViewer
 
 
 
+
+
+		public static Vector2d compute_offset_step(Vector2d cur_pos, GeneralPolygon2d poly, double fTargetOffset, double stepSize) {
+
+			int iHole, iSeg; double segT;
+			double distSqr =
+				poly.DistanceSquared(cur_pos, out iHole, out iSeg, out segT);
+			double dist = Math.Sqrt(distSqr);
+			Vector2d normal = poly.GetNormal(iSeg, segT, iHole);
+
+			double step = stepSize;
+			if (dist > fTargetOffset) {
+				step = Math.Max(fTargetOffset - dist, -step);
+			} else {
+				step = Math.Min(fTargetOffset - dist, step);
+			}
+
+			Vector2d new_pos = cur_pos - step * normal;
+			return new_pos;
+		}
+
+
+
+
+
+
+
 		public static void SmoothPass(DGraph2 graph, int passes, double smooth_alpha, double max_move)
 		{
 			double max_move_sqr = max_move * max_move;
 			int NV = graph.MaxVertexID;
-			Vector2d[] smoothedV = new Vector2d[NV];
+			DVector<Vector2d> smoothedV = offset_cache;
+			if (smoothedV.size < NV)
+				smoothedV.resize(NV+10);
 
 			for (int pi = 0; pi < passes; ++pi) {
 				for (int vid = 0; vid < NV; ++vid) {

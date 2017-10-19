@@ -19,7 +19,7 @@ namespace gs
 
 		public static SKColor Color(byte r, byte g, byte b, byte a = 255) {
 			if ( Util.IsRunningOnMono() ) {
-				return new SKColor(r, g, b, a);
+				return new SKColor(b, g, r, a);
 			} else {
 				return new SKColor(r, g, b, a);
 			}

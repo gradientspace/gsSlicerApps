@@ -58,7 +58,7 @@ namespace SliceViewer
             //GCodeFile genGCode = MakerbotTests.StackedPolygonTest(poly, 2);
             //GCodeFile genGCode = MakerbotTests.StackedScaledPolygonTest(poly, 20, 0.5);
 
-            readMesh = StandardMeshReader.ReadMesh("../../../sample_files/bunny_solid_2p5cm.obj");
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/bunny_solid_2p5cm.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/bunny_solid_5cm_min.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/basic_step.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/slab_5deg.obj");
@@ -69,7 +69,7 @@ namespace SliceViewer
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/tube_1.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/50x50x1_box.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/crop_bracket.obj");
-            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/thinwall2.obj");
+            readMesh = StandardMeshReader.ReadMesh("../../../sample_files/thinwall2.obj");
             //MeshUtil.ScaleMesh(readMesh, Frame3f.Identity, 1.1f*Vector3f.One);
 
             PrintMeshAssembly meshes = new PrintMeshAssembly();

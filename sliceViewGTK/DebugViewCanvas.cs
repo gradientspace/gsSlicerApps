@@ -97,9 +97,11 @@ namespace SliceViewer
 			paint.Color = SkiaUtil.Color(color);
 
 			SKPath path = SkiaUtil.ToSKPath(poly, mapF);
+			paint.StrokeWidth = 2;
 			canvas.DrawPath(path, paint);
 
-			paint.Color = SKColors.Orange;
+			//paint.Color = SKColors.Orange;
+			paint.StrokeWidth = 1;
 			foreach (Vector2d v in poly.AllVerticesItr()) {
 				SKPoint c = mapF(v);
 				canvas.DrawCircle(c.X, c.Y, 3.0f, paint);
@@ -115,9 +117,11 @@ namespace SliceViewer
 			paint.Color = SkiaUtil.Color(color);
 
 			SKPath path = SkiaUtil.ToSKPath(graph, mapF);
+			paint.StrokeWidth = 2;
 			canvas.DrawPath(path, paint);
 
-			paint.Color = SKColors.Black;
+			paint.StrokeWidth = 1;
+			//paint.Color = SKColors.Black;
 			foreach (Vector2d v in graph.Vertices()) {
 				SKPoint c = mapF(v);
 				canvas.DrawCircle(c.X, c.Y, 3.0f, paint);
