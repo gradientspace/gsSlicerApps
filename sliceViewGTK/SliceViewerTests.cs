@@ -23,6 +23,10 @@ namespace SliceViewer
             GeneralPolygon2d poly = new GeneralPolygon2d(
 				Polygon2d.MakeCircle(10, 32));
 
+            //Polygon2d hole = Polygon2d.MakeCircle(9, 32);
+            //hole.Reverse();
+            //poly.AddHole(hole);
+
             Polygon2d hole = Polygon2d.MakeCircle(5, 32);
             hole.Translate(new Vector2d(2, 0));
             hole.Reverse();
@@ -48,7 +52,7 @@ namespace SliceViewer
             double spacing = 0.2;
 
             //double[] offsets = new double[] { 0.5, 1, 1.5, 2, 2.5 };
-            double[] offsets = new double[] { 4 };
+            double[] offsets = new double[] { 0.2, 0.6 };
 
             foreach (double offset in offsets) {
                 DGraph2 graph = Offset(poly, offset, spacing, false);
@@ -70,12 +74,14 @@ namespace SliceViewer
         static DVector<Vector2d> collapse_cache;
         static GeneralPolygon2dBoxTree poly_tree;
         static PointHashGrid2d<int> graph_cache;
+        static DVector<double> last_step_size;
 
         public static DGraph2 Offset(GeneralPolygon2d poly, double fOffset, double fTargetSpacing, bool bResolveOverlaps)
         {
             double dt = fTargetSpacing / 2;
             int nSteps = (int)( Math.Abs(fOffset) / dt );
-            nSteps += nSteps / 3;
+            if (nSteps < 10)
+                nSteps = 10;
 
 			DGraph2 graph = new DGraph2();
 			graph.AppendPolygon(poly.Outer);
@@ -99,43 +105,65 @@ namespace SliceViewer
 
             LocalProfiler p = new LocalProfiler();
 
+            last_step_size = new DVector<double>();
+            last_step_size.resize(graph.VertexCount * 2);
 
-			for (int i = 0; i < nSteps; ++i ) {
+
+            int TUNE_STEPS = nSteps/2;
+            nSteps *= 2;
+            for (int i = 0; i < nSteps; ++i ) {
 
 				p.Start("offset");
 
-                /*
-                 * ISSUE: in very thin regions, we will still try to take a step at least as large as dt,
-                 * and then a second step 'back'. It would be better if we could keep track of how large
-                 * a step we managed to take at each vertex, and scale dt to be in that range.
-                 * 
-                 */
-
+                double step_dt = dt;
+                if (i > nSteps - TUNE_STEPS)
+                    step_dt = dt / 2;
+                if (last_step_size.size < graph.VertexCount)
+                    last_step_size.resize(graph.VertexCount);
                 gParallel.ForEach(graph.VertexIndices(), (vid) => {
+
+                    // use tracked step size if we have it
+                    double use_dt = step_dt;
+                    if (last_step_size[vid] > 0)
+                        use_dt = Math.Min(last_step_size[vid], dt);
+
                     Vector2d cur_pos = graph.GetVertex(vid);
                     double err, err_2;
                     // take two sequential steps and average them. this vastly improves convergence.
-                    Vector2d new_pos = compute_offset_step(cur_pos, poly, fOffset, dt, out err);
-                    Vector2d new_pos_2 = compute_offset_step(new_pos, poly, fOffset, dt, out err_2);
-                    if (err < MathUtil.ZeroTolerancef)
-                        err = MathUtil.ZeroTolerancef;
-                    if (err_2 < MathUtil.ZeroTolerancef)
-                        err_2 = MathUtil.ZeroTolerancef;
+                    Vector2d new_pos = compute_offset_step(cur_pos, poly, fOffset, use_dt, out err);
+                    Vector2d new_pos_2 = compute_offset_step(new_pos, poly, fOffset, use_dt, out err_2);
 
-                    double w = 1.0 / err, w_2 = 1.0 / err_2;
-                    new_pos = w * new_pos + w_2 * new_pos_2;
-                    new_pos /= (w + w_2);
+                    // weighted blend of points - prefer one w/ smaller error
+                    //double w = 1.0 / Math.Max(err, MathUtil.ZeroTolerancef);
+                    //double w_2 = 1.0 / Math.Max(err_2, MathUtil.ZeroTolerancef);
+                    //new_pos = w * new_pos + w_2 * new_pos_2;
+                    //new_pos /= (w + w_2);
+                    // [RMS] weighted blend doesn't seem to matter if we are tracking per-vertex step size.
+                    new_pos = Vector2d.Lerp(new_pos, new_pos_2, 0.5);
 
-                    //new_pos = Vector2d.Lerp(new_pos, new_pos_2, 0.5);
+                    // keep track of actual step we are taking and use that next iteration
+                    double actual_step_dist = cur_pos.Distance(new_pos);
+                    if (last_step_size[vid] == 0)
+                        last_step_size[vid] = actual_step_dist;
+                    else
+                        last_step_size[vid] = (0.75) * last_step_size[vid] + (0.25) * actual_step_dist;
+
 
                     graph_cache.UpdatePoint(vid, cur_pos, new_pos);
                     graph.SetVertex(vid, new_pos);
                 });
 
-				p.StopAndAccumulate("offset");
+
+                p.StopAndAccumulate("offset");
 				p.Start("smooth");
 
-                SmoothPass(graph, 5, 0.75, fTargetSpacing / 2);
+                // for the last few steps, reduce smoothing
+                int smooth_steps = 5; double smooth_alpha = 0.75;
+                if ( i > nSteps - TUNE_STEPS) {
+                    smooth_steps = 2; smooth_alpha = 0.25;
+                }
+
+                SmoothPass(graph, smooth_steps, smooth_alpha, fTargetSpacing / 2);
 
 				p.StopAndAccumulate("smooth");
 				p.Start("join");
@@ -350,6 +378,7 @@ namespace SliceViewer
                 DGraph2.EdgeCollapseInfo collapseInfo;
                 graph.CollapseEdge(bNearest, a, out collapseInfo);
                 graph_cache.RemovePointUnsafe(a, pos_a);
+                last_step_size[a] = 0;
                 graph_cache.UpdatePointUnsafe(bNearest, pos_bNearest, graph.GetVertex(bNearest));
                 merged++;
             }
@@ -404,6 +433,7 @@ namespace SliceViewer
                 graph.CollapseEdge(bNearest, a, out collapseInfo);
 
                 graph_cache.RemovePointUnsafe(a, pos_a);
+                last_step_size[a] = 0;
                 graph_cache.UpdatePointUnsafe(bNearest, pos_bNearest, graph.GetVertex(bNearest));
                 collapse_cache[bNearest] = new Vector2d(-1, double.MaxValue);
 
@@ -480,6 +510,7 @@ namespace SliceViewer
                         DGraph2.EdgeCollapseInfo collapseInfo;
                         if (graph.CollapseEdge(keep, remove, out collapseInfo) == MeshResult.Ok) {
                             graph_cache.RemovePointUnsafe(collapseInfo.vRemoved, remove_pos);
+                            last_step_size[collapseInfo.vRemoved] = 0;
                             graph_cache.UpdatePointUnsafe(collapseInfo.vKept, keep_pos, newPos);
                             graph.SetVertex(collapseInfo.vKept, newPos);
                             done = false;
