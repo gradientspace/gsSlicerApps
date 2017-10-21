@@ -45,7 +45,7 @@ namespace gs
 		void OnExpose(object sender, ExposeEventArgs args)
 		{
 			DrawingArea area = (DrawingArea)sender;
-			Cairo.Context cr = Gdk.CairoHelper.Create(area.GdkWindow);
+			Cairo.Context cairoContext = Gdk.CairoHelper.Create(area.GdkWindow);
 
 			int width = area.Allocation.Width;
 			int height = area.Allocation.Height;
@@ -80,20 +80,24 @@ namespace gs
 
 					DrawScene(canvas, ViewTransformF);
 
-					Cairo.Surface surface = new Cairo.ImageSurface(
+					Cairo.Surface cairoSurf = new Cairo.ImageSurface(
 						bitmap.GetPixels(out len),
 						Cairo.Format.Argb32,
 						bitmap.Width, bitmap.Height,
 						bitmap.Width * 4);
 
-					surface.MarkDirty();
-					cr.SetSourceSurface(surface, 0, 0);
-					cr.Paint();
+					cairoSurf.MarkDirty();
+					cairoContext.SetSourceSurface(cairoSurf, 0, 0);
+					cairoContext.Paint();
+
+                    cairoSurf.Dispose();
 				}
 			}
 
-			//return true;
-		}
+            cairoContext.Dispose();
+
+            //return true;
+        }
 
 
 

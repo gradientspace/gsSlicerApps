@@ -69,11 +69,17 @@ namespace SliceViewer
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/tube_1.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/50x50x1_box.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/crop_bracket.obj");
-            readMesh = StandardMeshReader.ReadMesh("../../../sample_files/thinwall2.obj");
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/thinwall2.obj");
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/box_and_cylsheet.obj");
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/box_and_opensheet.obj");
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/radial_fins.obj");
+            readMesh = StandardMeshReader.ReadMesh("../../../sample_files/radial_fins_larger.obj");
             //MeshUtil.ScaleMesh(readMesh, Frame3f.Identity, 1.1f*Vector3f.One);
 
+            DMesh3[] meshComponents = MeshConnectedComponents.Separate(readMesh);
+
             PrintMeshAssembly meshes = new PrintMeshAssembly();
-            meshes.Meshes.Add(readMesh);
+            meshes.Meshes.AddRange(meshComponents);
 
             AxisAlignedBox3d bounds = meshes.TotalBounds;
             AxisAlignedBox2d bounds2 = new AxisAlignedBox2d(bounds.Center.xy, bounds.Width / 2, bounds.Height / 2);
@@ -91,6 +97,7 @@ namespace SliceViewer
 
                 // configure settings
                 MakerbotSettings settings = new MakerbotSettings();
+                settings.ClipSelfOverlaps = true;
 
                 // slice meshes
                 MeshPlanarSlicer slicer = new MeshPlanarSlicer() {
@@ -172,6 +179,10 @@ namespace SliceViewer
             // configure settings
             MakerbotSettings settings = new MakerbotSettings();
             settings.Shells = 2;
+            settings.InteriorSolidRegionShells = 0;
+            settings.SparseLinearInfillStepX = 5;
+            settings.ClipSelfOverlaps = true;
+            settings.LayerRangeFilter = new Interval1i(100, 150);
 
             // slice meshes
             MeshPlanarSlicer slicer = new MeshPlanarSlicer() {

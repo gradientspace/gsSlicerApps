@@ -283,6 +283,9 @@ namespace SliceViewer
             blitPaint.Color = SkiaUtil.Color(0, 0, 0, 64);
 
             baseCanvas.DrawBitmap(blitBitmap, 0, 0, blitPaint);
+
+            blitPaint.Dispose();
+            blitBitmap.Dispose();
         }
 
 
