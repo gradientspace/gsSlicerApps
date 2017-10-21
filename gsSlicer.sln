@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25123.0
+# Visual Studio 15
+VisualStudioVersion = 15.0.26730.10
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "geometry3Sharp", "geometry3Sharp\geometry3Sharp.csproj", "{0C518DDA-28FE-44CA-9AB0-F9773974F13A}"
 EndProject
@@ -21,6 +21,9 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "dlpViewer", "dlpView\dlpViewer.csproj", "{27D42159-1910-4506-B62B-8A502084EAC1}"
 EndProject
 Global
+	GlobalSection(Performance) = preSolution
+		HasPerformanceSessions = true
+	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Debug|x64 = Debug|x64
@@ -45,15 +48,15 @@ Global
 		{6348C5CD-6696-4B59-9851-43924A326BD4}.Debug|Any CPU.ActiveCfg = Debug|x86
 		{6348C5CD-6696-4B59-9851-43924A326BD4}.Debug|Any CPU.Build.0 = Debug|x86
 		{6348C5CD-6696-4B59-9851-43924A326BD4}.Debug|x64.ActiveCfg = Debug|x86
+		{6348C5CD-6696-4B59-9851-43924A326BD4}.Debug|x64.Build.0 = Debug|x86
 		{6348C5CD-6696-4B59-9851-43924A326BD4}.Debug|x86.ActiveCfg = Debug|x86
 		{6348C5CD-6696-4B59-9851-43924A326BD4}.Debug|x86.Build.0 = Debug|x86
 		{6348C5CD-6696-4B59-9851-43924A326BD4}.Release|Any CPU.ActiveCfg = Release|x86
+		{6348C5CD-6696-4B59-9851-43924A326BD4}.Release|Any CPU.Build.0 = Release|x86
 		{6348C5CD-6696-4B59-9851-43924A326BD4}.Release|x64.ActiveCfg = Release|x86
+		{6348C5CD-6696-4B59-9851-43924A326BD4}.Release|x64.Build.0 = Release|x86
 		{6348C5CD-6696-4B59-9851-43924A326BD4}.Release|x86.ActiveCfg = Release|x86
 		{6348C5CD-6696-4B59-9851-43924A326BD4}.Release|x86.Build.0 = Release|x86
-		{6348C5CD-6696-4B59-9851-43924A326BD4}.Debug|x64.Build.0 = Debug|x86
-		{6348C5CD-6696-4B59-9851-43924A326BD4}.Release|Any CPU.Build.0 = Release|x86
-		{6348C5CD-6696-4B59-9851-43924A326BD4}.Release|x64.Build.0 = Release|x86
 		{6C2E415E-37D9-4C5A-8FD5-60B0133872CF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{6C2E415E-37D9-4C5A-8FD5-60B0133872CF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6C2E415E-37D9-4C5A-8FD5-60B0133872CF}.Debug|x64.ActiveCfg = Debug|Any CPU
@@ -105,6 +108,9 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C5DB3B00-5C9B-4955-8934-8A51FA501820}
 	EndGlobalSection
 	GlobalSection(MonoDevelopProperties) = preSolution
 		Policies = $0

@@ -104,6 +104,7 @@ namespace SliceViewer
                 graph_cache.InsertPoint(vid, graph.GetVertex(vid));
 
             LocalProfiler p = new LocalProfiler();
+            p.Start("All");
 
             last_step_size = new DVector<double>();
             last_step_size.resize(graph.VertexCount * 2);
@@ -184,7 +185,9 @@ namespace SliceViewer
 				p.StopAndAccumulate("refine");
 			}
 
-			System.Console.WriteLine(p.AllAccumulatedTimes());
+            p.Stop("All");
+            System.Console.WriteLine("All: " + p.Elapsed("All"));
+            System.Console.WriteLine(p.AllAccumulatedTimes());
 
             //SmoothPass(graph, 25, 0.1, fMergeThresh);
 
@@ -397,7 +400,7 @@ namespace SliceViewer
             if (collapse_cache.size < NV)
                 collapse_cache.resize(NV);
 
-            gParallel.ForEach_Sequential(Interval1i.Range(NV), (a) => {
+            gParallel.ForEach(Interval1i.Range(NV), (a) => {
                 collapse_cache[a] = new Vector2d(-1, double.MaxValue);
                 if (!graph.IsVertex(a))
                     return;

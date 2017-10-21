@@ -182,7 +182,7 @@ namespace SliceViewer
             settings.InteriorSolidRegionShells = 0;
             settings.SparseLinearInfillStepX = 5;
             settings.ClipSelfOverlaps = true;
-            settings.LayerRangeFilter = new Interval1i(100, 150);
+            //settings.LayerRangeFilter = new Interval1i(130, 140);
 
             // slice meshes
             MeshPlanarSlicer slicer = new MeshPlanarSlicer() {
