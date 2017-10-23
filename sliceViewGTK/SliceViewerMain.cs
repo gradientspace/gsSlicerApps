@@ -73,10 +73,14 @@ namespace SliceViewer
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/box_and_cylsheet.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/box_and_opensheet.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/radial_fins.obj");
-            readMesh = StandardMeshReader.ReadMesh("../../../sample_files/radial_fins_larger.obj");
-            //MeshUtil.ScaleMesh(readMesh, Frame3f.Identity, 1.1f*Vector3f.One);
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/radial_fins_larger.obj");
+			//readMesh = StandardMeshReader.ReadMesh("../../../sample_files/bunny_hollow_5cm.obj");
+			readMesh = StandardMeshReader.ReadMesh("../../../sample_files/notch_test_1.obj");
+			//readMesh = StandardMeshReader.ReadMesh("../../../sample_files/variable_thins.obj");
+			//MeshUtil.ScaleMesh(readMesh, Frame3f.Identity, 1.1f*Vector3f.One);
 
-            DMesh3[] meshComponents = MeshConnectedComponents.Separate(readMesh);
+			DMesh3[] meshComponents = MeshConnectedComponents.Separate(readMesh);
+			//DMesh3[] meshComponents = new DMesh3[] { readMesh };
 
             PrintMeshAssembly meshes = new PrintMeshAssembly();
             meshes.Meshes.AddRange(meshComponents);
@@ -235,31 +239,39 @@ namespace SliceViewer
 
 		private static void Window_KeyReleaseEvent(object sender, KeyReleaseEventArgs args)
 		{
-            if (args.Event.Key == Gdk.Key.Up) {
-                if ((args.Event.State & Gdk.ModifierType.ShiftMask) != 0)
-                    View.CurrentLayer = View.CurrentLayer + 10;
-                else
-                    View.CurrentLayer = View.CurrentLayer + 1;
-            } else if (args.Event.Key == Gdk.Key.Down) {
-                if ((args.Event.State & Gdk.ModifierType.ShiftMask) != 0)
-                    View.CurrentLayer = View.CurrentLayer - 10;
-                else
-                    View.CurrentLayer = View.CurrentLayer - 1;
+			if (args.Event.Key == Gdk.Key.Up) {
+				if ((args.Event.State & Gdk.ModifierType.ShiftMask) != 0)
+					View.CurrentLayer = View.CurrentLayer + 10;
+				else
+					View.CurrentLayer = View.CurrentLayer + 1;
+			} else if (args.Event.Key == Gdk.Key.Down) {
+				if ((args.Event.State & Gdk.ModifierType.ShiftMask) != 0)
+					View.CurrentLayer = View.CurrentLayer - 10;
+				else
+					View.CurrentLayer = View.CurrentLayer - 1;
 
-            } else if (args.Event.Key == Gdk.Key.n) {
-                if (View.NumberMode == SliceViewCanvas.NumberModes.NoNumbers)
-                    View.NumberMode = SliceViewCanvas.NumberModes.PathNumbers;
-                else
-                    View.NumberMode = SliceViewCanvas.NumberModes.NoNumbers;
+			} else if (args.Event.Key == Gdk.Key.n) {
+				if (View.NumberMode == SliceViewCanvas.NumberModes.NoNumbers)
+					View.NumberMode = SliceViewCanvas.NumberModes.PathNumbers;
+				else
+					View.NumberMode = SliceViewCanvas.NumberModes.NoNumbers;
+				View.QueueDraw();
 
-            } else if ( args.Event.Key == Gdk.Key.w ) {
-                View.ShowFillArea = !View.ShowFillArea;
+			} else if (args.Event.Key == Gdk.Key.f) {
+				View.ShowFillArea = !View.ShowFillArea;
+				View.QueueDraw();
 
-            } else if (args.Event.Key == Gdk.Key.t) {
-                View.ShowTravels = !View.ShowTravels;
+			} else if (args.Event.Key == Gdk.Key.t) {
+				View.ShowTravels = !View.ShowTravels;
+				View.QueueDraw();
+
+			} else if (args.Event.Key == Gdk.Key.p) {
+				View.ShowDepositMoves = !View.ShowDepositMoves;
+				View.QueueDraw();
 
             } else if (args.Event.Key == Gdk.Key.b) {
 				View.ShowBelowLayer = !View.ShowBelowLayer;
+				View.QueueDraw();
 
 			} else if ( args.Event.Key == Gdk.Key.q ) {
                 SliceViewerTests.TestDGraph2();

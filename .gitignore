@@ -50,3 +50,4 @@ sample_output/*
 !/sample_output/gitkeepdir.txt
 
 .vs/
+SLIC3R_LAST.gcode
