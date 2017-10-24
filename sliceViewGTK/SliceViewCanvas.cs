@@ -14,7 +14,7 @@ namespace SliceViewer
 		public bool ShowDepositMoves = true;
         public bool ShowFillArea = false;
 
-        public bool ShowIssues = true;
+		public bool ShowIssues = false;
 
         public float PathDiameterMM = 0.4f;
 

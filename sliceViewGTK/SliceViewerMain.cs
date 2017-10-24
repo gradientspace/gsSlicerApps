@@ -273,7 +273,7 @@ namespace SliceViewer
 				View.ShowBelowLayer = !View.ShowBelowLayer;
 				View.QueueDraw();
 
-            } else if (args.Event.Key == Gdk.Key.u) {
+            } else if (args.Event.Key == Gdk.Key.i) {
                 View.ShowIssues = !View.ShowIssues;
                 View.QueueDraw();
 
