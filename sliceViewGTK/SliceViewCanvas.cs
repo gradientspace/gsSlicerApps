@@ -14,6 +14,11 @@ namespace SliceViewer
 		public bool ShowDepositMoves = true;
         public bool ShowFillArea = false;
 
+        public bool ShowIssues = true;
+
+        public float PathDiameterMM = 0.4f;
+
+
 		public enum NumberModes
 		{
 			NoNumbers,
@@ -48,7 +53,7 @@ namespace SliceViewer
 			Paths = paths;
 			Layers = new LayersDetector(Paths);
 			CurrentLayer = 0;
-		}
+        }
 
 		public int CurrentLayer {
 			get { return currentLayer; }
@@ -63,57 +68,15 @@ namespace SliceViewer
 						return 16;
 					return (byte)0;
 				};
-				QueueDraw();
+                invalidate_path_caches();
+                QueueDraw();
 			}
 		}
 
 
 
 		    
-		SKPath MakePath<T>(LinearPath3<T> path, Func<Vector2d, SKPoint> mapF) where T : IPathVertex
-		{
-			SKPath p = new SKPath();
-			p.MoveTo(mapF(path[0].Position.xy));
-			for ( int i = 1; i < path.VertexCount; i++ )
-				p.LineTo( mapF(path[i].Position.xy) );
-			return p;
-		}
 
-
-		List<SKPath> MakePathSegments<T>(LinearPath3<T> path, Func<Vector2d, SKPoint> mapF, double angleThreshD) where T : IPathVertex
-		{
-			List<SKPath> result = new List<SKPath>();
-
-			Vector2d prevprev = path[0].Position.xy;
-
-			SKPath p = new SKPath();
-			result.Add(p);
-			p.MoveTo(mapF(prevprev));
-			if (path.VertexCount == 1) {
-				p.LineTo(mapF(prevprev));
-				return result;
-			}
-
-			Vector2d prev = path[1].Position.xy;
-			int i = 2;
-			p.LineTo(mapF(prev));
-
-			while ( i < path.VertexCount ) {
-				Vector2d next = path[i++].Position.xy;
-				double turnAngle = Vector2d.AngleD((prevprev - prev).Normalized, (next - prev).Normalized);
-				if ( turnAngle < angleThreshD ) {
-					p = new SKPath();
-					result.Add(p);
-					p.MoveTo(mapF(prev));
-					p.LineTo(mapF(next));
-				} else {
-					p.LineTo(mapF(next));
-				}
-				prevprev = prev;
-				prev = next;
-			}
-			return result;
-		}
 
 
         Func<Vector2d, Vector2f> SceneXFormF = (v) => { return (Vector2f)v; };
@@ -176,6 +139,12 @@ namespace SliceViewer
 					//DrawFillOverlapsIntegrate(Paths, canvas);
                 }
 
+                if (ShowIssues) {
+                    validate_path_caches();
+                    if ( CurrentLayer > 0 )
+                        MarkFloatingEndpointsAndCorners(Paths, canvas, paint);
+                }
+
 				if (NumberMode == NumberModes.PathNumbers )
 					DrawPathLabels(Paths, canvas, paint);
 
@@ -186,26 +155,6 @@ namespace SliceViewer
 
 
 
-
-
-		void ProcessLinearPaths(PathSet pathSetIn, Action<LinearPath3<PathVertex>> processF) {
-			Action<IPath> drawPath = (path) => {
-				if (path is LinearPath3<PathVertex>)
-					processF(path as LinearPath3<PathVertex>);
-				// else we might have other path type...
-			};
-			Action<IPathSet> drawPaths = null;
-			drawPaths = (pathList) => {
-				foreach (IPath path in pathList) {
-					if (path is IPathSet)
-						drawPaths(path as IPathSet);
-					else
-						drawPath(path);
-				}
-			};
-
-			drawPaths(pathSetIn);			
-		}
 
 
 
@@ -295,7 +244,7 @@ namespace SliceViewer
 
                 using (var paint = new SKPaint()) {
                     paint.IsAntialias = true;
-                    paint.StrokeWidth = dimensionScale * 0.4f;
+                    paint.StrokeWidth = dimensionScale * PathDiameterMM;
                     paint.Style = SKPaintStyle.Stroke;
                     paint.StrokeCap = SKStrokeCap.Round;
                     paint.StrokeJoin = SKStrokeJoin.Round;
@@ -343,7 +292,7 @@ namespace SliceViewer
 
             using (var paint = new SKPaint()) {
                 paint.IsAntialias = true;
-                paint.StrokeWidth = dimensionScale * 0.4f;
+                paint.StrokeWidth = dimensionScale * PathDiameterMM;
                 paint.Style = SKPaintStyle.Stroke;
                 paint.StrokeCap = SKStrokeCap.Round;
                 paint.StrokeJoin = SKStrokeJoin.Round;
@@ -389,7 +338,7 @@ namespace SliceViewer
 		private void DrawFillOverlapsIntegrate(PathSet pathSetIn, SKCanvas baseCanvas)
 		{
 			SKColor fillColor = SkiaUtil.Color(255, 0, 255, 5);
-			float path_diam = dimensionScale * 0.4f;
+			float path_diam = dimensionScale * PathDiameterMM;
 			float spot_r = path_diam * 0.5f;
 			float spacing = 1.0f / dimensionScale;
 
@@ -472,11 +421,260 @@ namespace SliceViewer
         {
             string text = "Layer " + currentLayer.ToString();
             paint.Color = SKColors.Black;
+            paint.StrokeWidth = 1;
             canvas.DrawText(text, 10, 10, paint);
         }
 
 
-	}
+
+
+
+        private void MarkFloatingEndpointsAndCorners(PathSet pathSetIn, SKCanvas canvas, SKPaint paint)
+        {
+            double FloatingStartDistThreshMM = PathDiameterMM * 0.6f;
+
+            float FloatCircleRadius = MapDimension(PathDiameterMM*0.5f, SceneToSkiaF);
+
+            paint.Style = SKPaintStyle.Stroke;
+            paint.IsAntialias = true;
+            paint.Color = SKColors.Black;
+            paint.StrokeWidth = 4;
+
+            SKColor start_color = SKColors.Red.WithAlpha(128);
+            SKColor end_color = SKColors.Orange.WithAlpha(128);
+
+            Action<LinearPath3<PathVertex>> drawFloatF = (polyPath) => {
+                if (polyPath.Type != PathTypes.Deposition)
+                    return;
+
+                Vector3d v0 = polyPath.Start.Position;
+                byte layer_alpha = LayerFilterF(v0);
+                if (layer_alpha < 255)
+                    return;
+
+                Vector2d nearPt;
+                for ( int k = 0; k < polyPath.VertexCount; ++k ) {
+                    if ( k > 0 && k < polyPath.VertexCount-1 ) {
+                        double angle = polyPath.PlanarAngleD(k);
+                        if (angle > 179)
+                            continue;
+                    }
+                    Vector2d v = polyPath[k].Position.xy;
+                    double dist = find_below_nearest(v, FloatingStartDistThreshMM, out nearPt);
+                    if ( dist == double.MaxValue ) {
+                        paint.Color = start_color;
+                        SKPoint c = SceneToSkiaF(v), n = SceneToSkiaF(nearPt);
+                        canvas.DrawCircle(c.X, c.Y, FloatCircleRadius, paint);
+                    }
+                }
+
+
+                //Vector2d nearPt;
+                //double dist = find_below_nearest(v0.xy, 4*FloatingStartDistThreshMM, out nearPt);
+                //if ( dist < double.MaxValue && dist > FloatingStartDistThreshMM) {
+                //    paint.Color = start_color;
+                //    SKPoint c = SceneToSkiaF(v0.xy), n = SceneToSkiaF(nearPt);
+                //    canvas.DrawCircle(c.X, c.Y, FloatCircleRadius, paint);
+                //    paint.Color = SKColors.DarkRed;
+                //    canvas.DrawLine(c.X, c.Y, n.X, n.Y, paint);
+                //}
+
+                //Vector3d v1 = polyPath.End.Position;
+                //double dist2 = find_below_nearest(v1.xy, 4*FloatingStartDistThreshMM, out nearPt);
+                //if (dist2 < double.MaxValue && dist2 > FloatingStartDistThreshMM) {
+                //    paint.Color = end_color;
+                //    SKPoint c = SceneToSkiaF(v1.xy), n = SceneToSkiaF(nearPt);
+                //    canvas.DrawCircle(c.X, c.Y, FloatCircleRadius, paint);
+                //    paint.Color = SKColors.DarkOrange;
+                //    canvas.DrawLine(c.X, c.Y, n.X, n.Y, paint);
+                //}
+
+
+                
+
+            };
+
+            ProcessLinearPaths(pathSetIn, drawFloatF);
+        }
+
+
+
+
+
+
+
+        bool path_cache_valid = false;
+        SegmentHashGrid2d<Segment2d> below_grid;
+        SegmentHashGrid2d<Segment2d> current_grid;
+
+        double find_below_nearest(Vector2d pt, double distThresh, out Vector2d nearPt)
+        {
+            nearPt = Vector2d.MaxValue;
+            var result =
+                below_grid.FindNearestInSquaredRadius(pt, distThresh * distThresh,
+                    (seg) => { return seg.DistanceSquared(pt); }, null);
+            if (result.Value == double.MaxValue)
+                return double.MaxValue;
+            nearPt = result.Key.NearestPoint(pt);
+            return Math.Sqrt(result.Value);
+        }
+
+
+        double find_current_nearest(Vector2d pt, double distThresh, out Vector2d nearPt)
+        {
+            nearPt = Vector2d.MaxValue;
+            var result =
+                current_grid.FindNearestInSquaredRadius(pt, distThresh * distThresh,
+                    (seg) => { return seg.DistanceSquared(pt); }, null);
+            if (result.Value != double.MaxValue) {
+                nearPt = result.Key.NearestPoint(pt);
+            }
+            return Math.Sqrt(result.Value);
+        }
+
+        private void invalidate_path_caches()
+        {
+            path_cache_valid = false;
+        }
+
+        private void validate_path_caches()
+        {
+            if (path_cache_valid)
+                return;
+
+            double maxLen = 2.5f;
+            double maxLenSqr = maxLen * maxLen;
+            Segment2d invalid = new Segment2d(Vector2d.MaxValue, Vector2d.MaxValue);
+
+            below_grid = new SegmentHashGrid2d<Segment2d>(3 * maxLen, invalid);
+            current_grid = new SegmentHashGrid2d<Segment2d>(3 * maxLen, invalid);
+
+            Action<LinearPath3<PathVertex>> pathFuncF = (polyPath) => {
+                if (polyPath.Type != PathTypes.Deposition)
+                    return;
+
+                Vector3d v0 = polyPath.Start.Position;
+                byte layer_alpha = LayerFilterF(v0);
+                if (layer_alpha == 0)
+                    return;
+                bool is_below = (layer_alpha < 255);
+                var grid = (is_below) ? below_grid : current_grid;
+
+                int N = polyPath.VertexCount;
+                for ( int k = 0; k < N-1; ++k) {
+                    Vector2d a = polyPath[k].Position.xy;
+                    Vector2d b = polyPath[k+1].Position.xy;
+                    double d2 = a.DistanceSquared(b);
+                    if ( d2 < maxLenSqr ) {
+                        Segment2d s = new Segment2d(a, b);
+                        grid.InsertSegment(s, s.Center, s.Extent);
+                        continue;
+                    }
+                    int subdivs = (int)(d2 / maxLenSqr);
+                    Vector2d prev = a;
+                    for ( int i = 1; i <= subdivs; ++i ) {
+                        double t = (double)i / (double)subdivs;
+                        Vector2d next = Vector2d.Lerp(a, b, t);
+                        Segment2d s = new Segment2d(prev, next);
+                        grid.InsertSegment(s, s.Center, s.Extent);
+                        prev = next;
+                    }
+                }
+            };
+
+            ProcessLinearPaths(Paths, pathFuncF);
+
+            path_cache_valid = true;
+        }
+
+
+
+
+
+
+
+        // utility stuff that could go somewhere else...
+
+
+
+        static void ProcessLinearPaths(PathSet pathSetIn, Action<LinearPath3<PathVertex>> processF)
+        {
+            Action<IPath> drawPath = (path) => {
+                if (path is LinearPath3<PathVertex>)
+                    processF(path as LinearPath3<PathVertex>);
+                // else we might have other path type...
+            };
+            Action<IPathSet> drawPaths = null;
+            drawPaths = (pathList) => {
+                foreach (IPath path in pathList) {
+                    if (path is IPathSet)
+                        drawPaths(path as IPathSet);
+                    else
+                        drawPath(path);
+                }
+            };
+
+            drawPaths(pathSetIn);
+        }
+
+
+
+        static float MapDimension(float dimension, Func<Vector2d, SKPoint> mapF)
+        {
+            SKPoint o = mapF(new Vector2d(0, 0));
+            SKPoint x = mapF(new Vector2d(dimension, 0));
+            float dx = x.X - o.X, dy = x.Y - o.Y;
+            return (float)Math.Sqrt(dx*dx + dy*dy);
+        }
+
+
+        static SKPath MakePath<T>(LinearPath3<T> path, Func<Vector2d, SKPoint> mapF) where T : IPathVertex
+        {
+            SKPath p = new SKPath();
+            p.MoveTo(mapF(path[0].Position.xy));
+            for (int i = 1; i < path.VertexCount; i++)
+                p.LineTo(mapF(path[i].Position.xy));
+            return p;
+        }
+
+
+        static List<SKPath> MakePathSegments<T>(LinearPath3<T> path, Func<Vector2d, SKPoint> mapF, double angleThreshD) where T : IPathVertex
+        {
+            List<SKPath> result = new List<SKPath>();
+
+            Vector2d prevprev = path[0].Position.xy;
+
+            SKPath p = new SKPath();
+            result.Add(p);
+            p.MoveTo(mapF(prevprev));
+            if (path.VertexCount == 1) {
+                p.LineTo(mapF(prevprev));
+                return result;
+            }
+
+            Vector2d prev = path[1].Position.xy;
+            int i = 2;
+            p.LineTo(mapF(prev));
+
+            while (i < path.VertexCount) {
+                Vector2d next = path[i++].Position.xy;
+                double turnAngle = Vector2d.AngleD((prevprev - prev).Normalized, (next - prev).Normalized);
+                if (turnAngle < angleThreshD) {
+                    p = new SKPath();
+                    result.Add(p);
+                    p.MoveTo(mapF(prev));
+                    p.LineTo(mapF(next));
+                } else {
+                    p.LineTo(mapF(next));
+                }
+                prevprev = prev;
+                prev = next;
+            }
+            return result;
+        }
+
+
+    }
 
 
 
