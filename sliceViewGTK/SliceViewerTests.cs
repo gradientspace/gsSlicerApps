@@ -12,6 +12,186 @@ namespace SliceViewer
 	{
 
 
+        public static void TestFill()
+        {
+            Window window = new Window("TestFill");
+            window.SetDefaultSize(600, 600);
+            window.SetPosition(WindowPosition.Center);
+
+            DebugViewCanvas view = new DebugViewCanvas();
+
+            GeneralPolygon2d poly = new GeneralPolygon2d(
+                Polygon2d.MakeCircle(20, 32));
+
+            Polygon2d hole = Polygon2d.MakeCircle(15, 32);
+            hole.Reverse();
+            poly.AddHole(hole);
+            
+            view.AddPolygon(poly, Colorf.Black);
+
+            double spacing = 0.5;
+
+            double[] offsets = new double[] { 5 };
+
+            foreach (double offset in offsets) {
+                DGraph2 graph = TopoOffset2d.QuickCompute(poly, offset, spacing);
+                DGraph2Util.Curves c = DGraph2Util.ExtractCurves(graph);
+                view.AddGraph(graph, Colorf.Red);
+
+                //DGraph2 perturbGraph = perturb_fill(graph, poly, 5.0f, spacing);
+                DGraph2 perturbGraph = perturb_fill_2(graph, poly, 2.5f, spacing);
+                //DGraph2Util.Curves c2 = DGraph2Util.ExtractCurves(perturbGraph);
+                view.AddGraph(perturbGraph, Colorf.Orange);
+
+            }
+
+            window.Add(view);
+            window.ShowAll();
+        }
+
+
+
+
+
+        public static DGraph2 perturb_fill(DGraph2 graphIn, GeneralPolygon2d bounds, double waveWidth, double stepSize)
+        {
+            DGraph2Util.Curves curves = DGraph2Util.ExtractCurves(graphIn);
+            Polygon2d poly = curves.Loops[0];
+
+            GeneralPolygon2dBoxTree gpTree = new GeneralPolygon2dBoxTree(bounds);
+            Polygon2dBoxTree outerTree = new Polygon2dBoxTree(bounds.Outer);
+            Polygon2dBoxTree innerTree = new Polygon2dBoxTree(bounds.Holes[0]);
+
+            DGraph2 graph = new DGraph2();
+            graph.EnableVertexColors(Vector3f.Zero);
+
+            double len = poly.Perimeter;
+            int waves = (int)(len / waveWidth);
+            double lenScale = len / (MathUtil.TwoPI * waves);
+            double accum_len = 0;
+            int prev_vid = -1, start_vid = -1;
+            int N = poly.VertexCount;
+            for ( int k = 0; k < N; ++k ) {
+                double t = accum_len / lenScale;
+                t = Math.Cos(t);
+                //Vector2d normal = poly.GetNormal(k);
+                Vector2d normal = poly[k].Normalized;
+                int vid = graph.AppendVertex(poly[k], new Vector3f(t, normal.x, normal.y));
+                if ( prev_vid != -1 ) {
+                    graph.AppendEdge(prev_vid, vid);
+                    accum_len += graph.GetVertex(prev_vid).Distance(graph.GetVertex(vid));
+                } else {
+                    start_vid = vid;
+                }
+                prev_vid = vid;
+            }
+            graph.AppendEdge(prev_vid, start_vid);
+
+            Vector2d[] newPos = new Vector2d[graph.MaxVertexID];
+
+            for (int k = 0; k < 10; ++k)
+                smooth_pass(graph, 0.5f, newPos);
+
+            for (int k = 0; k < 20; ++k) {
+
+                foreach (int vid in graph.VertexIndices()) {
+                    Vector2d v = graph.GetVertex(vid);
+                    Vector3f c = graph.GetVertexColor(vid);
+
+                    float t = c.x;
+                    Vector2d n = new Vector2d(c.y, c.z);
+
+                    if ( k == 0 || Math.Abs(t) > 0.9) {
+                        v += t * stepSize * n;
+                        if (!bounds.Contains(v)) {
+                            v = gpTree.NearestPoint(v);
+                        }
+                    }
+
+                    newPos[vid] = v;
+                }
+
+                foreach (int vid in graph.VertexIndices()) {
+                    graph.SetVertex(vid, newPos[vid]);
+                }
+
+                for ( int j = 0; j < 5; ++j )
+                    smooth_pass(graph, 0.1f, newPos);
+            }
+
+            return graph;
+        }
+
+
+
+
+
+        public static DGraph2 perturb_fill_2(DGraph2 graphIn, GeneralPolygon2d bounds, double waveWidth, double stepSize)
+        {
+            DGraph2Util.Curves curves = DGraph2Util.ExtractCurves(graphIn);
+            Polygon2d poly = curves.Loops[0];
+
+            GeneralPolygon2dBoxTree gpTree = new GeneralPolygon2dBoxTree(bounds);
+            Polygon2dBoxTree outerTree = new Polygon2dBoxTree(bounds.Outer);
+            Polygon2dBoxTree innerTree = new Polygon2dBoxTree(bounds.Holes[0]);
+
+            DGraph2 graph = new DGraph2();
+            graph.EnableVertexColors(Vector3f.Zero);
+
+            graph.AppendPolygon(poly);
+
+            DGraph2Resampler resampler = new DGraph2Resampler(graph);
+            resampler.CollapseToMinEdgeLength(waveWidth);
+            if (graph.VertexCount % 2 != 0) {
+                // TODO smallest edge
+                Index2i ev = graph.GetEdgeV(graph.EdgeIndices().First());
+                DGraph2.EdgeCollapseInfo cinfo;
+                graph.CollapseEdge(ev.a, ev.b, out cinfo);
+            }
+
+
+            // move to borders
+            int startv = graph.VertexIndices().First();
+            int eid = graph.VtxEdgesItr(startv).First();
+            int curv = startv;
+            bool outer = true;
+            do {
+                Polygon2dBoxTree use_tree = (outer) ? outerTree : innerTree;
+                outer = !outer;
+                graph.SetVertex(curv, use_tree.NearestPoint(graph.GetVertex(curv)));
+
+                Index2i next = DGraph2Util.NextEdgeAndVtx(eid, curv, graph);
+                eid = next.a;
+                curv = next.b;
+            } while (curv != startv);
+
+
+
+            return graph;
+        }
+
+
+
+
+        public static void smooth_pass(DGraph2 graph, float alpha, Vector2d[] newPos)
+        {
+            foreach (int vid in graph.VertexIndices()) {
+                Vector2d v = graph.GetVertex(vid);
+                bool isvalid;
+                Vector2d l = DGraph2Util.VertexLaplacian(graph, vid, out isvalid);
+                v += alpha * l;
+                newPos[vid] = v;
+            }
+            foreach (int vid in graph.VertexIndices()) {
+                graph.SetVertex(vid, newPos[vid]);
+            }
+        }
+
+
+
+
+
+
         public static void TestDGraph2()
 		{
 			Window window = new Window("TestDGraph2");
@@ -54,8 +234,10 @@ namespace SliceViewer
             //double[] offsets = new double[] { 0.5, 1, 1.5, 2, 2.5 };
             double[] offsets = new double[] { 0.2, 0.6 };
 
+            TopoOffset2d o = new TopoOffset2d(poly) { PointSpacing = spacing };
             foreach (double offset in offsets) {
-                DGraph2 graph = Offset(poly, offset, spacing, false);
+                o.Offset = offset;
+                DGraph2 graph = o.Compute();
                 DGraph2Util.Curves c = DGraph2Util.ExtractCurves(graph);
                 view.AddGraph(graph, Colorf.Red);
             }
@@ -67,526 +249,7 @@ namespace SliceViewer
 		}
 
 
-
-
-		static DVector<Vector2d> offset_cache;
-        static DVector<Vector2d> position_cache;
-        static DVector<Vector2d> collapse_cache;
-        static GeneralPolygon2dBoxTree poly_tree;
-        static PointHashGrid2d<int> graph_cache;
-        static DVector<double> last_step_size;
-
-        public static DGraph2 Offset(GeneralPolygon2d poly, double fOffset, double fTargetSpacing, bool bResolveOverlaps)
-        {
-            double dt = fTargetSpacing / 2;
-            int nSteps = (int)( Math.Abs(fOffset) / dt );
-            if (nSteps < 10)
-                nSteps = 10;
-
-			DGraph2 graph = new DGraph2();
-			graph.AppendPolygon(poly.Outer);
-			foreach (var h in poly.Holes)
-				graph.AppendPolygon(h);
-
-            graph_cache = null;
-			SplitToMaxEdgeLength(graph, fTargetSpacing * 1.5);
-
-			offset_cache = new DVector<Vector2d>();
-			offset_cache.resize(graph.VertexCount*2);
-            position_cache = new DVector<Vector2d>();
-            position_cache.resize(graph.VertexCount * 2);
-            poly_tree = new GeneralPolygon2dBoxTree(poly);
-            collapse_cache = new DVector<Vector2d>();
-            collapse_cache.resize(graph.VertexCount * 2);
-
-            graph_cache = new PointHashGrid2d<int>(poly.Bounds.MaxDim / 64, -1);
-            foreach (int vid in graph.VertexIndices())
-                graph_cache.InsertPoint(vid, graph.GetVertex(vid));
-
-            LocalProfiler p = new LocalProfiler();
-            p.Start("All");
-
-            last_step_size = new DVector<double>();
-            last_step_size.resize(graph.VertexCount * 2);
-
-
-            int TUNE_STEPS = nSteps/2;
-            nSteps *= 2;
-            for (int i = 0; i < nSteps; ++i ) {
-
-				p.Start("offset");
-
-                double step_dt = dt;
-                if (i > nSteps - TUNE_STEPS)
-                    step_dt = dt / 2;
-                if (last_step_size.size < graph.VertexCount)
-                    last_step_size.resize(graph.VertexCount);
-                gParallel.ForEach(graph.VertexIndices(), (vid) => {
-
-                    // use tracked step size if we have it
-                    double use_dt = step_dt;
-                    if (last_step_size[vid] > 0)
-                        use_dt = Math.Min(last_step_size[vid], dt);
-
-                    Vector2d cur_pos = graph.GetVertex(vid);
-                    double err, err_2;
-                    // take two sequential steps and average them. this vastly improves convergence.
-                    Vector2d new_pos = compute_offset_step(cur_pos, poly, fOffset, use_dt, out err);
-                    Vector2d new_pos_2 = compute_offset_step(new_pos, poly, fOffset, use_dt, out err_2);
-
-                    // weighted blend of points - prefer one w/ smaller error
-                    //double w = 1.0 / Math.Max(err, MathUtil.ZeroTolerancef);
-                    //double w_2 = 1.0 / Math.Max(err_2, MathUtil.ZeroTolerancef);
-                    //new_pos = w * new_pos + w_2 * new_pos_2;
-                    //new_pos /= (w + w_2);
-                    // [RMS] weighted blend doesn't seem to matter if we are tracking per-vertex step size.
-                    new_pos = Vector2d.Lerp(new_pos, new_pos_2, 0.5);
-
-                    // keep track of actual step we are taking and use that next iteration
-                    double actual_step_dist = cur_pos.Distance(new_pos);
-                    if (last_step_size[vid] == 0)
-                        last_step_size[vid] = actual_step_dist;
-                    else
-                        last_step_size[vid] = (0.75) * last_step_size[vid] + (0.25) * actual_step_dist;
-
-
-                    graph_cache.UpdatePoint(vid, cur_pos, new_pos);
-                    graph.SetVertex(vid, new_pos);
-                });
-
-
-                p.StopAndAccumulate("offset");
-				p.Start("smooth");
-
-                // for the last few steps, reduce smoothing
-                int smooth_steps = 5; double smooth_alpha = 0.75;
-                if ( i > nSteps - TUNE_STEPS) {
-                    smooth_steps = 2; smooth_alpha = 0.25;
-                }
-
-                SmoothPass(graph, smooth_steps, smooth_alpha, fTargetSpacing / 2);
-
-				p.StopAndAccumulate("smooth");
-				p.Start("join");
-
-				int joined = 0;
-				do {
-                    //joined = JoinInTolerance(graph, fMergeThresh);
-                    //joined = JoinInTolerance_Parallel(graph, fMergeThresh);
-                    joined = JoinInTolerance_Parallel_Cache(graph, fTargetSpacing);
-                } while (joined > 0);
-
-				p.StopAndAccumulate("join");
-				p.Start("refine");
-
-				CollapseToMinEdgeLength(graph, fTargetSpacing * 0.75f);
-				SplitToMaxEdgeLength(graph, fTargetSpacing * 1.5);
-
-				p.StopAndAccumulate("refine");
-			}
-
-            p.Stop("All");
-            System.Console.WriteLine("All: " + p.Elapsed("All"));
-            System.Console.WriteLine(p.AllAccumulatedTimes());
-
-            //SmoothPass(graph, 25, 0.1, fMergeThresh);
-
-            if (bResolveOverlaps) {
-                List<int> junctions = new List<int>();
-                foreach (int vid in graph.VertexIndices()) {
-                    if (graph.GetVtxEdgeCount(vid) > 2)
-                        junctions.Add(vid);
-                }
-                foreach (int vid in junctions) {
-                    Vector2d v = graph.GetVertex(vid);
-                    int[] nbr_verts = graph.VtxVerticesItr(vid).ToArray();
-                    Index2i best_aligned = Index2i.Max; double max_angle = 0;
-                    for (int i = 0; i < nbr_verts.Length; ++i) {
-                        for (int j = i + 1; j < nbr_verts.Length; ++j) {
-                            double angle = Vector2d.AngleD(
-                                (graph.GetVertex(nbr_verts[i]) - v).Normalized,
-                                (graph.GetVertex(nbr_verts[j]) - v).Normalized);
-                            angle = Math.Abs(angle);
-                            if (angle > max_angle) {
-                                max_angle = angle;
-                                best_aligned = new Index2i(nbr_verts[i], nbr_verts[j]);
-                            }
-                        }
-                    }
-
-                    for (int k = 0; k < nbr_verts.Length; ++k) {
-                        if (nbr_verts[k] == best_aligned.a || nbr_verts[k] == best_aligned.b)
-                            continue;
-                        int eid = graph.FindEdge(vid, nbr_verts[k]);
-                        graph.RemoveEdge(eid, true);
-                        if (graph.IsVertex(nbr_verts[k])) {
-                            Vector2d newpos = Vector2d.Lerp(graph.GetVertex(nbr_verts[k]), v, 0.99);
-                            int newv = graph.AppendVertex(newpos);
-                            graph.AppendEdge(nbr_verts[k], newv);
-                        }
-                    }
-                }
-
-                PathOverlapRepair repair = new PathOverlapRepair(graph);
-                repair.Compute();
-            }
-
-
-            return graph;
-		}
-
-
-
-
-
-		public static Vector2d compute_offset_step(Vector2d cur_pos, GeneralPolygon2d poly, double fTargetOffset, double stepSize, out double err) {
-
-			int iHole, iSeg; double segT;
-            double distSqr =
-                //poly.DistanceSquared(cur_pos, out iHole, out iSeg, out segT);
-                poly_tree.DistanceSquared(cur_pos, out iHole, out iSeg, out segT);
-
-            double dist = Math.Sqrt(distSqr);
-			Vector2d normal = poly.GetNormal(iSeg, segT, iHole);
-
-            if ( fTargetOffset < 0 ) {
-                fTargetOffset = -fTargetOffset;
-                normal = -normal;
-            }
-
-			double step = stepSize;
-			if (dist > fTargetOffset) {
-				step = Math.Max(fTargetOffset - dist, -step);
-			} else {
-				step = Math.Min(fTargetOffset - dist, step);
-			}
-            err = Math.Abs(fTargetOffset - dist);
-
-			Vector2d new_pos = cur_pos - step * normal;
-			return new_pos;
-		}
-
-
-
-
-
-
-
-		public static void SmoothPass(DGraph2 graph, int passes, double smooth_alpha, double max_move)
-		{
-			double max_move_sqr = max_move * max_move;
-			int NV = graph.MaxVertexID;
-			DVector<Vector2d> smoothedV = offset_cache;
-			if (smoothedV.size < NV)
-				smoothedV.resize(NV);
-
-            if (position_cache.size < NV)
-                position_cache.resize(NV);
-
-            for (int pi = 0; pi < passes; ++pi) {
-
-                gParallel.ForEach(Interval1i.Range(NV), (vid) => {
-                    if (!graph.IsVertex(vid))
-                        return;
-                    Vector2d v = graph.GetVertex(vid);
-                    Vector2d c = Vector2d.Zero;
-                    int n = 0;
-                    foreach (int vnbr in graph.VtxVerticesItr(vid)) {
-                        c += graph.GetVertex(vnbr);
-                        n++;
-                    }
-                    if (n >= 2) {
-                        c /= n;
-                        Vector2d dv = (smooth_alpha) * (c - v);
-                        if (dv.LengthSquared > max_move_sqr) {
-                            double d = dv.Normalize();
-                            dv *= max_move;
-                        }
-                        v += dv;
-                    }
-                    smoothedV[vid] = v;
-                });
-
-                if (pi == 0) {
-                    for (int vid = 0; vid < NV; ++vid) {
-                        if (graph.IsVertex(vid)) {
-                            position_cache[vid] = graph.GetVertex(vid);
-                            graph.SetVertex(vid, smoothedV[vid]);
-                        }
-                    }
-                } else {
-                    for (int vid = 0; vid < NV; ++vid) {
-                        if (graph.IsVertex(vid)) 
-                            graph.SetVertex(vid, smoothedV[vid]);
-                    }
-                }
-			}
-
-            for (int vid = 0; vid < NV; ++vid) {
-                if (graph.IsVertex(vid)) 
-                    graph_cache.UpdatePointUnsafe(vid, position_cache[vid], smoothedV[vid]);
-            }
-            
-
-        }
-
-
-
-
-        public static int JoinInTolerance_Parallel(DGraph2 graph, double fMergeDist)
-        {
-            double mergeSqr = fMergeDist * fMergeDist;
-
-            int NV = graph.MaxVertexID;
-            if ( collapse_cache.size < NV )
-                collapse_cache.resize(NV);
-
-            gParallel.ForEach( Interval1i.Range(NV), (a) => {
-                collapse_cache[a] = new Vector2d(-1, double.MaxValue);
-                if (!graph.IsVertex(a))
-                    return;
-
-                Vector2d va = graph.GetVertex(a);
-
-                int bNearest = -1;
-                double nearDistSqr = double.MaxValue;
-                for (int b = a + 1; b < NV; ++b) {
-                    if (b == a || graph.IsVertex(b) == false)
-                        continue;
-                    double distsqr = va.DistanceSquared(graph.GetVertex(b));
-                    if (distsqr < mergeSqr && distsqr < nearDistSqr) {
-                        if (graph.FindEdge(a, b) == DGraph2.InvalidID) {
-                            nearDistSqr = distsqr;
-                            bNearest = b;
-                        }
-                    }
-                }
-                if (bNearest != -1)
-                    collapse_cache[a] = new Vector2d(bNearest, nearDistSqr);
-            });
-
-            // [TODO] sort
-
-            int merged = 0;
-            for (int a = 0; a < NV; ++a) {
-                if (collapse_cache[a].x == -1)
-                    continue;
-
-                int bNearest = (int)collapse_cache[a].x;
-
-                Vector2d pos_a = graph.GetVertex(a);
-                Vector2d pos_bNearest = graph.GetVertex(bNearest);
-
-                int eid = graph.AppendEdge(a, bNearest);
-                DGraph2.EdgeCollapseInfo collapseInfo;
-                graph.CollapseEdge(bNearest, a, out collapseInfo);
-                graph_cache.RemovePointUnsafe(a, pos_a);
-                last_step_size[a] = 0;
-                graph_cache.UpdatePointUnsafe(bNearest, pos_bNearest, graph.GetVertex(bNearest));
-                merged++;
-            }
-            return merged;
-        }
-
-
-
-
-
-        public static int JoinInTolerance_Parallel_Cache(DGraph2 graph, double fMergeDist)
-        {
-            double mergeSqr = fMergeDist * fMergeDist;
-
-            int NV = graph.MaxVertexID;
-            if (collapse_cache.size < NV)
-                collapse_cache.resize(NV);
-
-            gParallel.ForEach(Interval1i.Range(NV), (a) => {
-                collapse_cache[a] = new Vector2d(-1, double.MaxValue);
-                if (!graph.IsVertex(a))
-                    return;
-
-                Vector2d va = graph.GetVertex(a);
-
-                KeyValuePair<int, double> found =
-                    graph_cache.FindNearestInRadius(va, mergeSqr,
-                        (b) => { return va.DistanceSquared(graph.GetVertex(b)); },
-                        (b) => { return b <= a || (graph.FindEdge(a, b) != DGraph2.InvalidID); });
-
-                if (found.Key != -1) {
-                    collapse_cache[a] = new Vector2d(found.Key, found.Value);
-                }
-            });
-
-            // [TODO] sort
-
-            int merged = 0;
-            for (int a = 0; a < NV; ++a) {
-                if (collapse_cache[a].x == -1)
-                    continue;
-
-                int bNearest = (int)collapse_cache[a].x;
-                if (!graph.IsVertex(bNearest))
-                    continue;
-
-                Vector2d pos_a = graph.GetVertex(a);
-                Vector2d pos_bNearest = graph.GetVertex(bNearest);
-
-                int eid = graph.AppendEdge(a, bNearest);
-                DGraph2.EdgeCollapseInfo collapseInfo;
-                graph.CollapseEdge(bNearest, a, out collapseInfo);
-
-                graph_cache.RemovePointUnsafe(a, pos_a);
-                last_step_size[a] = 0;
-                graph_cache.UpdatePointUnsafe(bNearest, pos_bNearest, graph.GetVertex(bNearest));
-                collapse_cache[bNearest] = new Vector2d(-1, double.MaxValue);
-
-                merged++;
-            }
-            return merged;
-        }
-
-
-
-
-        public static void CollapseToMinEdgeLength(DGraph2 graph, double fMinLen) {
-            double sharp_threshold_deg = 140.0f;
-
-			double minLenSqr = fMinLen * fMinLen;
-			bool done = false;
-            int max_passes = 100;
-            int pass_count = 0;
-			while (done == false && pass_count++ < max_passes) {
-				done = true;
-
-                // [RMS] do modulo-indexing here to avoid pathological cases where we do things like
-                // continually collapse a short edge adjacent to a long edge (which will result in crazy over-collapse)
-                int N = graph.MaxEdgeID;
-                const int nPrime = 31337;     // any prime will do...
-                int cur_eid = 0;
-                do {
-                    int eid = cur_eid;
-                    cur_eid = (cur_eid + nPrime) % N;
-
-                    if (!graph.IsEdge(eid))
-                        continue;
-                    Index2i ev = graph.GetEdgeV(eid);
-
-                    Vector2d va = graph.GetVertex(ev.a);
-                    Vector2d vb = graph.GetVertex(ev.b);
-                    double distSqr = va.DistanceSquared(vb);
-                    if (distSqr < minLenSqr) {
-
-                        int vtx_idx = -1;    // collapse to this vertex
-
-                        // check valences. want to preserve positions of non-valence-2
-                        int na = graph.GetVtxEdgeCount(ev.a);
-                        int nb = graph.GetVtxEdgeCount(ev.b);
-                        if (na != 2 && nb != 2)
-                            continue;
-                        if (na != 2)
-                            vtx_idx = 0;
-                        else if (nb != 2)
-                            vtx_idx = 1;
-
-                        // check opening angles. want to preserve sharp(er) angles
-                        if (vtx_idx == -1) {
-                            double opena = Math.Abs(graph.OpeningAngle(ev.a));
-                            double openb = Math.Abs(graph.OpeningAngle(ev.b));
-                            if (opena < sharp_threshold_deg && openb < sharp_threshold_deg)
-                                continue;
-                            else if (opena < sharp_threshold_deg)
-                                vtx_idx = 0;
-                            else if (openb < sharp_threshold_deg)
-                                vtx_idx = 1;
-                        }
-
-                        Vector2d newPos = (vtx_idx == -1) ? 0.5 * (va + vb) : ((vtx_idx == 0) ? va : vb);
-
-                        int keep = ev.a, remove = ev.b;
-                        if (vtx_idx == 1) {
-                            remove = ev.a; keep = ev.b;
-                        }
-
-                        Vector2d remove_pos = graph.GetVertex(remove);
-                        Vector2d keep_pos = graph.GetVertex(keep);
-
-                        DGraph2.EdgeCollapseInfo collapseInfo;
-                        if (graph.CollapseEdge(keep, remove, out collapseInfo) == MeshResult.Ok) {
-                            graph_cache.RemovePointUnsafe(collapseInfo.vRemoved, remove_pos);
-                            last_step_size[collapseInfo.vRemoved] = 0;
-                            graph_cache.UpdatePointUnsafe(collapseInfo.vKept, keep_pos, newPos);
-                            graph.SetVertex(collapseInfo.vKept, newPos);
-                            done = false;
-                        }
-                    }
-
-                } while (cur_eid != 0);
-			}
-		}
-
-
-
-
-
-
-
-
-
         
-
-
-
-
-
-
-
-
-
-        public static void SplitToMaxEdgeLength(DGraph2 graph, double fMaxLen) {
-			List<int> queue = new List<int>();
-			int NE = graph.MaxEdgeID;
-			for (int eid = 0; eid < NE; ++eid) {
-				if (!graph.IsEdge(eid))
-					continue;
-				Index2i ev = graph.GetEdgeV(eid);
-				double dist = graph.GetVertex(ev.a).Distance(graph.GetVertex(ev.b));
-				if (dist > fMaxLen) {
-					DGraph2.EdgeSplitInfo splitInfo;
-					if (graph.SplitEdge(eid, out splitInfo) == MeshResult.Ok ) {
-                        if (graph_cache != null)
-                            graph_cache.InsertPointUnsafe(splitInfo.vNew, graph.GetVertex(splitInfo.vNew));
-                        if (dist > 2 * fMaxLen) {
-                            queue.Add(eid);
-                            queue.Add(splitInfo.eNewBN);
-                        }
-					}
-				}
-			}
-			while (queue.Count > 0) {
-				int eid = queue[queue.Count - 1];
-				queue.RemoveAt(queue.Count - 1);
-				if (!graph.IsEdge(eid))
-					continue;
-				Index2i ev = graph.GetEdgeV(eid);
-				double dist = graph.GetVertex(ev.a).Distance(graph.GetVertex(ev.b));
-				if (dist > fMaxLen) {
-					DGraph2.EdgeSplitInfo splitInfo;
-					if (graph.SplitEdge(eid, out splitInfo) == MeshResult.Ok ) {
-                        if (graph_cache != null)
-                            graph_cache.InsertPointUnsafe(splitInfo.vNew, graph.GetVertex(splitInfo.vNew));
-                        if (dist > 2 * fMaxLen) {
-                            queue.Add(eid);
-                            queue.Add(splitInfo.eNewBN);
-                        }
-					}
-				}				
-			}
-		}
-
-
-
-
-
 
 
 

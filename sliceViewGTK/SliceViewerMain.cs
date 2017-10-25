@@ -278,7 +278,8 @@ namespace SliceViewer
                 View.QueueDraw();
 
             } else if ( args.Event.Key == Gdk.Key.q ) {
-                SliceViewerTests.TestDGraph2();
+                //SliceViewerTests.TestDGraph2();
+                SliceViewerTests.TestFill();
                 //SliceViewerTests.TestOffset();
             }
 		}
