@@ -196,7 +196,7 @@ namespace SliceViewer
             PlanarSliceStack slices = slicer.Compute();
 
             // run print generator
-            MakerbotPrintGenerator printGen = new MakerbotPrintGenerator(
+            SingleMaterialFFFPrintGenerator printGen = new SingleMaterialFFFPrintGenerator(
                 meshes, slices, settings
             );
             printGen.Generate();
