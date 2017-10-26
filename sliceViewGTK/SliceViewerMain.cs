@@ -181,12 +181,13 @@ namespace SliceViewer
         static string GenerateGCodeForMeshes(PrintMeshAssembly meshes)
         {
             // configure settings
-            MakerbotSettings settings = new MakerbotSettings();
-            //MonopriceSettings settings = new MonopriceSettings(Monoprice.Models.MP_Select_Mini_V2);
+            //MakerbotSettings settings = new MakerbotSettings();
+            MonopriceSettings settings = new MonopriceSettings(Monoprice.Models.MP_Select_Mini_V2);
             settings.Shells = 2;
             settings.InteriorSolidRegionShells = 0;
             settings.SparseLinearInfillStepX = 5;
             settings.ClipSelfOverlaps = true;
+			settings.LayerRangeFilter = new Interval1i(0, 5);
             //settings.LayerRangeFilter = new Interval1i(130, 140);
 
             // slice meshes
