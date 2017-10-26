@@ -181,8 +181,8 @@ namespace SliceViewer
         static string GenerateGCodeForMeshes(PrintMeshAssembly meshes)
         {
             // configure settings
-            //MakerbotSettings settings = new MakerbotSettings();
-            MonopriceSettings settings = new MonopriceSettings(Monoprice.Models.MP_Select_Mini_V2);
+            MakerbotSettings settings = new MakerbotSettings();
+            //MonopriceSettings settings = new MonopriceSettings(Monoprice.Models.MP_Select_Mini_V2);
             settings.Shells = 2;
             settings.InteriorSolidRegionShells = 0;
             settings.SparseLinearInfillStepX = 5;
@@ -198,7 +198,7 @@ namespace SliceViewer
 
             // run print generator
             SingleMaterialFFFPrintGenerator printGen = 
-                SingleMaterialFFFPrintGenerator.Auto( meshes, slices, settings );
+                new SingleMaterialFFFPrintGenerator( meshes, slices, settings );
             printGen.Generate();
             GCodeFile genGCode = printGen.Result;
 
