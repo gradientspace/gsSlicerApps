@@ -6,6 +6,7 @@ using Gtk;
 using GLib;
 using g3;
 using gs;
+using gs.info;
 
 namespace SliceViewer
 {
@@ -15,7 +16,9 @@ namespace SliceViewer
 	{
 
 		public static Window MainWindow;
-		public static SliceViewCanvas View; 
+		public static SliceViewCanvas View;
+
+		public static SingleMaterialFFFSettings LastSettings;
 
 
 		public static void Main(string[] args)
@@ -159,6 +162,9 @@ namespace SliceViewer
 
 
 			View.SetPaths(ViewPaths);
+			if (LastSettings != null)
+				View.PathDiameterMM = (float)LastSettings.Machine.NozzleDiamMM;
+
             MainWindow.Add(View);
 			MainWindow.KeyReleaseEvent += Window_KeyReleaseEvent;
 
@@ -180,15 +186,24 @@ namespace SliceViewer
 
         static string GenerateGCodeForMeshes(PrintMeshAssembly meshes)
         {
-            // configure settings
-            //MakerbotSettings settings = new MakerbotSettings();
-            MonopriceSettings settings = new MonopriceSettings(Monoprice.Models.MP_Select_Mini_V2);
+			// configure settings
+			//MakerbotSettings settings = new MakerbotSettings();
+			//MonopriceSettings settings = new MonopriceSettings(Monoprice.Models.MP_Select_Mini_V2);
+			PrintrbotSettings settings = new PrintrbotSettings(Printrbot.Models.Plus);
             settings.Shells = 2;
             settings.InteriorSolidRegionShells = 0;
             settings.SparseLinearInfillStepX = 5;
             settings.ClipSelfOverlaps = true;
 			settings.LayerRangeFilter = new Interval1i(0, 5);
-            //settings.LayerRangeFilter = new Interval1i(130, 140);
+
+			//settings.Machine.NozzleDiamMM = 0.75;
+			//settings.Machine.MaxLayerHeightMM = 0.5;
+			//settings.FillPathSpacingMM = settings.Machine.NozzleDiamMM;
+			//settings.LayerHeightMM = 0.5;
+
+			//settings.LayerRangeFilter = new Interval1i(130, 140);
+
+			LastSettings = settings.CloneAs<SingleMaterialFFFSettings>();
 
             // slice meshes
             MeshPlanarSlicer slicer = new MeshPlanarSlicer() {
