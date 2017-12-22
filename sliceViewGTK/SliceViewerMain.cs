@@ -77,16 +77,17 @@ namespace SliceViewer
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/box_and_opensheet.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/radial_fins.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/radial_fins_larger.obj");
-			//readMesh = StandardMeshReader.ReadMesh("../../../sample_files/bunny_hollow_5cm.obj");
-			readMesh = StandardMeshReader.ReadMesh("../../../sample_files/notch_test_1.obj");
-			//readMesh = StandardMeshReader.ReadMesh("../../../sample_files/variable_thins.obj");
-			//MeshUtil.ScaleMesh(readMesh, Frame3f.Identity, 1.1f*Vector3f.One);
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/bunny_hollow_5cm.obj");
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/notch_test_1.obj");
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/variable_thins.obj");
+            readMesh = StandardMeshReader.ReadMesh("../../../sample_files/arrow_posx.obj");
+            //MeshUtil.ScaleMesh(readMesh, Frame3f.Identity, 1.1f*Vector3f.One);
 
-			DMesh3[] meshComponents = MeshConnectedComponents.Separate(readMesh);
+            DMesh3[] meshComponents = MeshConnectedComponents.Separate(readMesh);
 			//DMesh3[] meshComponents = new DMesh3[] { readMesh };
 
             PrintMeshAssembly meshes = new PrintMeshAssembly();
-            meshes.Meshes.AddRange(meshComponents);
+            meshes.AddMeshes(meshComponents);
 
             AxisAlignedBox3d bounds = meshes.TotalBounds;
             AxisAlignedBox2d bounds2 = new AxisAlignedBox2d(bounds.Center.xy, bounds.Width / 2, bounds.Height / 2);
@@ -110,7 +111,7 @@ namespace SliceViewer
                 MeshPlanarSlicer slicer = new MeshPlanarSlicer() {
                     LayerHeightMM = settings.LayerHeightMM
                 };
-                slicer.AddMeshes(meshes.Meshes);
+                slicer.Add(meshes);
                 PlanarSliceStack slices = slicer.Compute();
 
                 // run print generator
@@ -187,14 +188,14 @@ namespace SliceViewer
         static string GenerateGCodeForMeshes(PrintMeshAssembly meshes)
         {
 			// configure settings
-			//MakerbotSettings settings = new MakerbotSettings();
+			MakerbotSettings settings = new MakerbotSettings();
 			//MonopriceSettings settings = new MonopriceSettings(Monoprice.Models.MP_Select_Mini_V2);
-			PrintrbotSettings settings = new PrintrbotSettings(Printrbot.Models.Plus);
+			//PrintrbotSettings settings = new PrintrbotSettings(Printrbot.Models.Plus);
             settings.Shells = 2;
             settings.InteriorSolidRegionShells = 0;
             settings.SparseLinearInfillStepX = 5;
             settings.ClipSelfOverlaps = true;
-			settings.LayerRangeFilter = new Interval1i(0, 5);
+			//settings.LayerRangeFilter = new Interval1i(0, 5);
 
 			//settings.Machine.NozzleDiamMM = 0.75;
 			//settings.Machine.MaxLayerHeightMM = 0.5;
@@ -209,7 +210,7 @@ namespace SliceViewer
             MeshPlanarSlicer slicer = new MeshPlanarSlicer() {
                 LayerHeightMM = settings.LayerHeightMM
             };
-            slicer.AddMeshes(meshes.Meshes);
+            slicer.Add(meshes);
             PlanarSliceStack slices = slicer.Compute();
 
             // run print generator
