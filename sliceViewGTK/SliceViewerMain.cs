@@ -68,7 +68,7 @@ namespace SliceViewer
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/unsupported_slab_5deg.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/sphere_angles_1cm.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/inverted_cone_1.obj");
-            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/tube_adapter.obj");
+            readMesh = StandardMeshReader.ReadMesh("../../../sample_files/tube_adapter.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/tube_1.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/50x50x1_box.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/crop_bracket.obj");
@@ -78,7 +78,7 @@ namespace SliceViewer
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/radial_fins.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/radial_fins_larger.obj");
 			//readMesh = StandardMeshReader.ReadMesh("../../../sample_files/bunny_hollow_5cm.obj");
-			readMesh = StandardMeshReader.ReadMesh("../../../sample_files/notch_test_1.obj");
+			//readMesh = StandardMeshReader.ReadMesh("../../../sample_files/notch_test_1.obj");
 			//readMesh = StandardMeshReader.ReadMesh("../../../sample_files/variable_thins.obj");
 			//MeshUtil.ScaleMesh(readMesh, Frame3f.Identity, 1.1f*Vector3f.One);
 
@@ -86,7 +86,7 @@ namespace SliceViewer
 			//DMesh3[] meshComponents = new DMesh3[] { readMesh };
 
             PrintMeshAssembly meshes = new PrintMeshAssembly();
-            meshes.Meshes.AddRange(meshComponents);
+            meshes.AddMeshes(meshComponents);
 
             AxisAlignedBox3d bounds = meshes.TotalBounds;
             AxisAlignedBox2d bounds2 = new AxisAlignedBox2d(bounds.Center.xy, bounds.Width / 2, bounds.Height / 2);
@@ -110,7 +110,7 @@ namespace SliceViewer
                 MeshPlanarSlicer slicer = new MeshPlanarSlicer() {
                     LayerHeightMM = settings.LayerHeightMM
                 };
-                slicer.AddMeshes(meshes.Meshes);
+                slicer.Add(meshes);
                 PlanarSliceStack slices = slicer.Compute();
 
                 // run print generator
@@ -209,7 +209,7 @@ namespace SliceViewer
             MeshPlanarSlicer slicer = new MeshPlanarSlicer() {
                 LayerHeightMM = settings.LayerHeightMM
             };
-            slicer.AddMeshes(meshes.Meshes);
+            slicer.Add(meshes);
             PlanarSliceStack slices = slicer.Compute();
 
             // run print generator
