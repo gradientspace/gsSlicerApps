@@ -194,7 +194,7 @@ namespace SliceViewer
             settings.InteriorSolidRegionShells = 0;
             settings.SparseLinearInfillStepX = 5;
             settings.ClipSelfOverlaps = true;
-			settings.LayerRangeFilter = new Interval1i(0, 5);
+			//settings.LayerRangeFilter = new Interval1i(0, 5);
 
 			//settings.Machine.NozzleDiamMM = 0.75;
 			//settings.Machine.MaxLayerHeightMM = 0.5;
