@@ -674,6 +674,52 @@ namespace SliceViewer
         }
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        public List<PolyLine2d> GetPolylinesForLayer(int layer)
+        {
+            PathSet pathSetIn = Paths;
+
+            SKColor extrudeColor = SkiaUtil.Color(0, 0, 0, 255);
+            Interval1d layer_zrange = Layers.GetLayerZInterval(layer);
+
+            List<PolyLine2d> polylines = new List<PolyLine2d>();
+
+            Action<LinearPath3<PathVertex>> drawPath3F = (polyPath) => {
+                Vector3d v0 = polyPath.Start.Position;
+                if (layer_zrange.Contains(v0.z) == false)
+                    return;
+                if (polyPath.Type != PathTypes.Deposition)
+                    return;
+
+                PolyLine2d pline = new PolyLine2d();
+                for (int i = 0; i < polyPath.VertexCount; ++i)
+                    pline.AppendVertex(polyPath[i].Position.xy);
+
+                polylines.Add(pline);
+            };
+
+            ProcessLinearPaths(pathSetIn, drawPath3F);
+
+            return polylines;
+        }
+
+
+
+
+
     }
 
 

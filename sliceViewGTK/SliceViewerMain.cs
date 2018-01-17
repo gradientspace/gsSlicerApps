@@ -298,6 +298,15 @@ namespace SliceViewer
                 //SliceViewerTests.TestDGraph2();
                 SliceViewerTests.TestFill();
                 //SliceViewerTests.TestOffset();
+
+            } else if ( args.Event.Key == Gdk.Key.e ) {
+                List<PolyLine2d> paths = View.GetPolylinesForLayer(View.CurrentLayer);
+                SVGWriter writer = new SVGWriter();
+                SVGWriter.Style lineStyle = SVGWriter.Style.Outline("black", 0.2f);
+                foreach (var p in paths)
+                    writer.AddPolyline(p, lineStyle);
+                writer.Write("c:\\scratch\\__LAST_PATHS.svg");
+
             }
 		}
 
