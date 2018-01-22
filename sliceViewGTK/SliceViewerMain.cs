@@ -81,10 +81,11 @@ namespace SliceViewer
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/notch_test_1.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/variable_thins.obj");
             readMesh = StandardMeshReader.ReadMesh("../../../sample_files/arrow_posx.obj");
+            //readMesh = StandardMeshReader.ReadMesh("c:\\scratch\\bunny_fixed_flat.obj");
             //MeshUtil.ScaleMesh(readMesh, Frame3f.Identity, 1.1f*Vector3f.One);
 
-            DMesh3[] meshComponents = MeshConnectedComponents.Separate(readMesh);
-			//DMesh3[] meshComponents = new DMesh3[] { readMesh };
+            //DMesh3[] meshComponents = MeshConnectedComponents.Separate(readMesh);
+            DMesh3[] meshComponents = new DMesh3[] { readMesh };
 
             PrintMeshAssembly meshes = new PrintMeshAssembly();
             meshes.AddMeshes(meshComponents);
@@ -94,87 +95,26 @@ namespace SliceViewer
 
 #endif
 
-            View = new SliceViewCanvas();
-
-
-            bool TEST_SLS = false;
-            PathSet ViewPaths = null;
-
-
-            if (TEST_SLS) {
-
-                // configure settings
-                MakerbotSettings settings = new MakerbotSettings();
-                settings.ClipSelfOverlaps = true;
-
-                // slice meshes
-                MeshPlanarSlicer slicer = new MeshPlanarSlicer() {
-                    LayerHeightMM = settings.LayerHeightMM
-                };
-                slicer.Add(meshes);
-                PlanarSliceStack slices = slicer.Compute();
-
-                // run print generator
-                GenericSLSPrintGenerator printGen = new GenericSLSPrintGenerator(
-                    meshes, slices, settings
-                );
-                printGen.Generate();
-
-                ViewPaths = printGen.Result;
-                View.ShowOpenEndpoints = false;
-                View.ShowTravels = false;
-                View.ShowPathStartPoints = false;
-
-            } else {
-
-                if (readMesh != null) {
-                    // generate gcode file for mesh
-                    sPath = GenerateGCodeForMeshes(meshes);
-                }
-
-                // read gcode file
-                GenericGCodeParser parser = new GenericGCodeParser();
-                GCodeFile gcode;
-                using (FileStream fs = new FileStream(sPath, FileMode.Open, FileAccess.Read)) {
-                    using (TextReader reader = new StreamReader(fs)) {
-                        gcode = parser.Parse(reader);
-                    }
-                }
-
-                // write back out gcode we loaded
-                //StandardGCodeWriter writer = new StandardGCodeWriter();
-                //using ( StreamWriter w = new StreamWriter("../../../sample_output/writeback.gcode") ) {
-                //	writer.WriteFile(gcode, w);
-                //}
-
-                GCodeToLayerPaths converter = new GCodeToLayerPaths();
-                MakerbotInterpreter interpreter = new MakerbotInterpreter();
-                interpreter.AddListener(converter);
-
-                InterpretArgs interpArgs = new InterpretArgs();
-                interpreter.Interpret(gcode, interpArgs);
-
-                //MakerbotSettings settings = new MakerbotSettings();
-                //CalculateExtrusion calc = new CalculateExtrusion(converter.Paths, settings);
-                //calc.TestCalculation();
-
-                ViewPaths = converter.Paths;
+            if (readMesh != null) {
+                // generate gcode file for mesh
+                sPath = GenerateGCodeForMeshes(meshes);
             }
 
 
-			View.SetPaths(ViewPaths);
-			if (LastSettings != null)
-				View.PathDiameterMM = (float)LastSettings.Machine.NozzleDiamMM;
-
+            View = new SliceViewCanvas();
             MainWindow.Add(View);
-			MainWindow.KeyReleaseEvent += Window_KeyReleaseEvent;
 
-			// support drag-drop
-			Gtk.TargetEntry[] target_table = new TargetEntry[] {
-			  new TargetEntry ("text/uri-list", 0, 0),
-			};
-			Gtk.Drag.DestSet(MainWindow, DestDefaults.All, target_table, Gdk.DragAction.Copy);
-			MainWindow.DragDataReceived += MainWindow_DragDataReceived;;
+            LoadGeneratedGCodeFile(sPath);
+            //GenerateGCodeForSliceFile("c:\\scratch\\output.gslice");
+
+            MainWindow.KeyReleaseEvent += Window_KeyReleaseEvent;
+
+            // support drag-drop
+            Gtk.TargetEntry[] target_table = new TargetEntry[] {
+              new TargetEntry ("text/uri-list", 0, 0),
+            };
+            Gtk.Drag.DestSet(MainWindow, DestDefaults.All, target_table, Gdk.DragAction.Copy);
+            MainWindow.DragDataReceived += MainWindow_DragDataReceived; ;
 
 
             MainWindow.ShowAll();
@@ -195,7 +135,8 @@ namespace SliceViewer
             settings.InteriorSolidRegionShells = 0;
             settings.SparseLinearInfillStepX = 5;
             settings.ClipSelfOverlaps = true;
-			//settings.LayerRangeFilter = new Interval1i(0, 5);
+            //settings.RoofLayers = settings.FloorLayers = 0;
+            //settings.LayerRangeFilter = new Interval1i(245, 255);
 
 			//settings.Machine.NozzleDiamMM = 0.75;
 			//settings.Machine.MaxLayerHeightMM = 0.5;
@@ -214,8 +155,8 @@ namespace SliceViewer
             PlanarSliceStack slices = slicer.Compute();
 
             // run print generator
-            SingleMaterialFFFPrintGenerator printGen = 
-                new SingleMaterialFFFPrintGenerator( meshes, slices, settings );
+            SingleMaterialFFFPrintGenerator printGen =
+                new SingleMaterialFFFPrintGenerator(meshes, slices, settings);
             printGen.Generate();
             GCodeFile genGCode = printGen.Result;
 
@@ -228,7 +169,58 @@ namespace SliceViewer
         }
 
 
-		static void LoadGCodeFile(string sPath) {
+
+
+
+        static void GenerateGCodeForSliceFile(string sliceFile)
+        {
+            PlanarSliceStack slices = new PlanarSliceStack();
+            using (TextReader reader = new StreamReader(sliceFile)) {
+                slices.ReadSimpleSliceFormat(reader);
+            }
+
+            // configure settings
+            MakerbotSettings settings = new MakerbotSettings();
+            //MonopriceSettings settings = new MonopriceSettings(Monoprice.Models.MP_Select_Mini_V2);
+            //PrintrbotSettings settings = new PrintrbotSettings(Printrbot.Models.Plus);
+            settings.Shells = 2;
+            settings.InteriorSolidRegionShells = 0;
+            settings.SparseLinearInfillStepX = 5;
+            settings.ClipSelfOverlaps = false;
+            settings.EnableSupport = false;
+
+            //settings.RoofLayers = settings.FloorLayers = 0;
+            //settings.LayerRangeFilter = new Interval1i(0,slices.Count/2);
+
+            LastSettings = settings.CloneAs<SingleMaterialFFFSettings>();
+
+            // empty...
+            PrintMeshAssembly meshes = new PrintMeshAssembly();
+
+            // run print generator
+            SingleMaterialFFFPrintGenerator printGen =
+                new SingleMaterialFFFPrintGenerator(meshes, slices, settings);
+            printGen.Generate();
+            GCodeFile genGCode = printGen.Result;
+
+            string sWritePath = "../../../sample_output/generated.gcode";
+            StandardGCodeWriter writer = new StandardGCodeWriter();
+            using (StreamWriter w = new StreamWriter(sWritePath)) {
+                writer.WriteFile(genGCode, w);
+            }
+
+            LoadGeneratedGCodeFile(sWritePath);
+        }
+
+
+
+
+
+
+
+
+
+        static void LoadGCodeFile(string sPath) {
 			GenericGCodeParser parser = new GenericGCodeParser();
 			GCodeFile gcode;
 			using (FileStream fs = new FileStream(sPath, FileMode.Open, FileAccess.Read)) {
@@ -246,6 +238,69 @@ namespace SliceViewer
 			PathSet Paths = converter.Paths;
 			View.SetPaths(Paths);		
 		}
+
+
+
+
+
+        static void LoadGeneratedGCodeFile(string sPath)
+        {
+            // read gcode file
+            GenericGCodeParser parser = new GenericGCodeParser();
+            GCodeFile gcode;
+            using (FileStream fs = new FileStream(sPath, FileMode.Open, FileAccess.Read)) {
+                using (TextReader reader = new StreamReader(fs)) {
+                    gcode = parser.Parse(reader);
+                }
+            }
+
+            // write back out gcode we loaded
+            //StandardGCodeWriter writer = new StandardGCodeWriter();
+            //using ( StreamWriter w = new StreamWriter("../../../sample_output/writeback.gcode") ) {
+            //	writer.WriteFile(gcode, w);
+            //}
+
+            GCodeToLayerPaths converter = new GCodeToLayerPaths();
+            MakerbotInterpreter interpreter = new MakerbotInterpreter();
+            interpreter.AddListener(converter);
+
+            InterpretArgs interpArgs = new InterpretArgs();
+            interpreter.Interpret(gcode, interpArgs);
+
+            View.SetPaths(converter.Paths);
+            if (LastSettings != null)
+                View.PathDiameterMM = (float)LastSettings.Machine.NozzleDiamMM;
+        }
+
+
+
+
+
+
+
+        static DMesh3 GenerateTubeMeshesForGCode(string sPath)
+        {
+            GenericGCodeParser parser = new GenericGCodeParser();
+            GCodeFile gcode;
+            using (FileStream fs = new FileStream(sPath, FileMode.Open, FileAccess.Read)) {
+                using (TextReader reader = new StreamReader(fs)) {
+                    gcode = parser.Parse(reader);
+                }
+            }
+            GCodeToTubeMeshes make_tubes = new GCodeToTubeMeshes() {
+                TubeProfile = Polygon2d.MakeCircle(0.2f, 12)
+            };
+            MakerbotInterpreter interpreter = new MakerbotInterpreter();
+            interpreter.AddListener(make_tubes);
+            interpreter.Interpret(gcode, new InterpretArgs());
+            DMesh3 tubeMesh2 = make_tubes.GetCombinedMesh(1);
+            return tubeMesh2;
+        }
+
+
+
+
+
 
 
 		void OnException(object o, UnhandledExceptionArgs args)
@@ -326,7 +381,11 @@ namespace SliceViewer
 			}
 			data = data.Replace("%20", " ");        // gtk inserts these for spaces? maybe? wtf.
 			try {
-				LoadGCodeFile(data);
+                if (data.EndsWith(".gslice")) {
+                    GenerateGCodeForSliceFile(data);
+                } else {
+                    LoadGCodeFile(data);
+                }
 			} catch (Exception e) {
 				using (var dialog = new Gtk.MessageDialog(MainWindow, DialogFlags.Modal, MessageType.Info, ButtonsType.Ok,
 					"Exception loading {0} : {1}", data, e.Message)) {
