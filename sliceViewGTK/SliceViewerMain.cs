@@ -14,6 +14,8 @@ namespace SliceViewer
 
 	class MainClass
 	{
+        const string GPX_PATH = "C:\\git\\gsSlicerApps\\bin\\gpx.exe";
+
 
 		public static Window MainWindow;
 		public static SliceViewCanvas View;
@@ -165,6 +167,11 @@ namespace SliceViewer
             using (StreamWriter w = new StreamWriter(sWritePath)) {
                 writer.WriteFile(genGCode, w);
             }
+
+            if (settings is MakerbotSettings) {
+                System.Diagnostics.Process.Start(GPX_PATH, "-p " + sWritePath);
+            }
+
             return sWritePath;
         }
 
@@ -207,6 +214,10 @@ namespace SliceViewer
             StandardGCodeWriter writer = new StandardGCodeWriter();
             using (StreamWriter w = new StreamWriter(sWritePath)) {
                 writer.WriteFile(genGCode, w);
+            }
+
+            if ( settings is MakerbotSettings ) {
+                System.Diagnostics.Process.Start(GPX_PATH, "-p " + sWritePath);
             }
 
             LoadGeneratedGCodeFile(sWritePath);
@@ -337,9 +348,13 @@ namespace SliceViewer
 				View.ShowTravels = !View.ShowTravels;
 				View.QueueDraw();
 
-			} else if (args.Event.Key == Gdk.Key.p) {
+			} else if (args.Event.Key == Gdk.Key.e) {
 				View.ShowDepositMoves = !View.ShowDepositMoves;
 				View.QueueDraw();
+
+            } else if (args.Event.Key == Gdk.Key.p) {
+                View.ShowAllPathPoints = !View.ShowAllPathPoints;
+                View.QueueDraw();
 
             } else if (args.Event.Key == Gdk.Key.b) {
 				View.ShowBelowLayer = !View.ShowBelowLayer;

@@ -10,6 +10,7 @@ namespace SliceViewer
 	{
         public bool ShowPathStartPoints = true;
 		public bool ShowOpenEndpoints = true;
+        public bool ShowAllPathPoints = false;
         public bool ShowTravels = true;
 		public bool ShowDepositMoves = true;
         public bool ShowFillArea = false;
@@ -139,6 +140,9 @@ namespace SliceViewer
 					//DrawFillOverlapsIntegrate(Paths, canvas);
                 }
 
+                if (ShowAllPathPoints)
+                    DrawLayerPoints(Paths, canvas, paint);
+
                 if (ShowIssues) {
                     validate_path_caches();
                     if ( CurrentLayer > 0 )
@@ -222,6 +226,35 @@ namespace SliceViewer
 
 			ProcessLinearPaths(pathSetIn, drawPath3F);
 		}
+
+
+
+
+
+
+
+
+        private void DrawLayerPoints(PathSet pathSetIn, SKCanvas canvas, SKPaint paint)
+        {
+
+            SKColor pointColor = SkiaUtil.Color(0, 0, 0, 255);
+            float pointR = 1.5f;
+
+            Action<LinearPath3<PathVertex>> drawPathPoints = (polyPath) => {
+                if (LayerFilterF(polyPath.Start.Position) < 255)
+                    return;
+                paint.Color = SkiaUtil.Color(pointColor, 255);
+                paint.StrokeWidth = 1;
+                for ( int vi = 0; vi < polyPath.VertexCount; vi++ ) {
+                    Vector2f pt = (Vector2f)SceneXFormF(polyPath[vi].Position.xy);
+                    paint.Style = SKPaintStyle.Fill;
+                    canvas.DrawCircle(pt.x, pt.y, pointR, paint);
+                }
+            };
+
+            ProcessLinearPaths(pathSetIn, drawPathPoints);
+        }
+
 
 
 
@@ -636,7 +669,6 @@ namespace SliceViewer
                 p.LineTo(mapF(path[i].Position.xy));
             return p;
         }
-
 
         static List<SKPath> MakePathSegments<T>(LinearPath3<T> path, Func<Vector2d, SKPoint> mapF, double angleThreshD) where T : IPathVertex
         {
