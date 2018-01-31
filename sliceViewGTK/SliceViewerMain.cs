@@ -68,6 +68,7 @@ namespace SliceViewer
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/basic_step.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/slab_5deg.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/unsupported_slab_5deg.obj");
+            readMesh = StandardMeshReader.ReadMesh("../../../sample_files/overhang_slab_1.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/sphere_angles_1cm.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/inverted_cone_1.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/tube_adapter.obj");
