@@ -14,8 +14,7 @@ namespace SliceViewer
 
 	class MainClass
 	{
-        const string GPX_PATH = "C:\\git\\gsSlicerApps\\bin\\gpx.exe";
-
+        const string GPX_PATH = "gpx.exe";
 
 		public static Window MainWindow;
 		public static SliceViewCanvas View;

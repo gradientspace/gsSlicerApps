@@ -133,4 +133,7 @@
     </PropertyGroup>
     <Error Condition="!Exists('..\packages\SkiaSharp.1.56.2\build\net45\SkiaSharp.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\SkiaSharp.1.56.2\build\net45\SkiaSharp.targets'))" />
   </Target>
+  <PropertyGroup>
+    <PostBuildEvent>copy $(SolutionDir)bin\gpx.exe $(TargetDir)</PostBuildEvent>
+  </PropertyGroup>
 </Project>
