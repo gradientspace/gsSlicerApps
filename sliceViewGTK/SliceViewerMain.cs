@@ -131,7 +131,7 @@ namespace SliceViewer
         static string GenerateGCodeForMeshes(PrintMeshAssembly meshes)
         {
 			// configure settings
-			MakerbotSettings settings = new MakerbotSettings();
+			MakerbotSettings settings = new MakerbotSettings(Makerbot.Models.Replicator2);
 			//MonopriceSettings settings = new MonopriceSettings(Monoprice.Models.MP_Select_Mini_V2);
 			//PrintrbotSettings settings = new PrintrbotSettings(Printrbot.Models.Plus);
             settings.Shells = 2;
@@ -140,6 +140,8 @@ namespace SliceViewer
             settings.ClipSelfOverlaps = true;
             //settings.RoofLayers = settings.FloorLayers = 0;
             //settings.LayerRangeFilter = new Interval1i(245, 255);
+
+            settings.EnableSupport = true;
 
 			//settings.Machine.NozzleDiamMM = 0.75;
 			//settings.Machine.MaxLayerHeightMM = 0.5;
@@ -241,13 +243,13 @@ namespace SliceViewer
 				}
 			}
 
-			GCodeToLayerPaths converter = new GCodeToLayerPaths();
+			GCodeToToolpaths converter = new GCodeToToolpaths();
 			MakerbotInterpreter interpreter = new MakerbotInterpreter();
 			interpreter.AddListener(converter);
 			InterpretArgs interpArgs = new InterpretArgs();
 			interpreter.Interpret(gcode, interpArgs);
 
-			PathSet Paths = converter.Paths;
+			ToolpathSet Paths = converter.PathSet;
 			View.SetPaths(Paths);		
 		}
 
@@ -272,14 +274,14 @@ namespace SliceViewer
             //	writer.WriteFile(gcode, w);
             //}
 
-            GCodeToLayerPaths converter = new GCodeToLayerPaths();
+            GCodeToToolpaths converter = new GCodeToToolpaths();
             MakerbotInterpreter interpreter = new MakerbotInterpreter();
             interpreter.AddListener(converter);
 
             InterpretArgs interpArgs = new InterpretArgs();
             interpreter.Interpret(gcode, interpArgs);
 
-            View.SetPaths(converter.Paths);
+            View.SetPaths(converter.PathSet);
             if (LastSettings != null)
                 View.PathDiameterMM = (float)LastSettings.Machine.NozzleDiamMM;
         }

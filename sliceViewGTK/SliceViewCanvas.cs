@@ -41,16 +41,16 @@ namespace SliceViewer
 
 		public SliceViewCanvas() 
 		{
-			SetPaths(new PathSet());
+			SetPaths(new ToolpathSet());
 			InitializeInternals();
 		}
 
-		PathSet Paths;
+		ToolpathSet Paths;
 		LayersDetector Layers;
 		int currentLayer = 0;
 		Func<Vector3d, byte> LayerFilterF = (v) => { return 255; };
 
-		public void SetPaths(PathSet paths) {
+		public void SetPaths(ToolpathSet paths) {
 			Paths = paths;
 			Layers = new LayersDetector(Paths);
 			CurrentLayer = 0;
@@ -163,7 +163,7 @@ namespace SliceViewer
 
 
 
-		private void DrawLayerPaths(PathSet pathSetIn, SKCanvas canvas, SKPaint paint) {
+		private void DrawLayerPaths(ToolpathSet pathSetIn, SKCanvas canvas, SKPaint paint) {
 
 			SKColor extrudeColor = SkiaUtil.Color(0, 0, 0, 255);
 			SKColor travelColor = SkiaUtil.Color(0, 255, 0, 128);
@@ -171,7 +171,7 @@ namespace SliceViewer
 			SKColor planeColor = SkiaUtil.Color(0, 0, 255, 128);
 			float pointR = 3f;
 
-			Action<LinearPath3<PathVertex>> drawPath3F = (polyPath) => {
+			Action<LinearToolpath3<PrintVertex>> drawPath3F = (polyPath) => {
 
 				Vector3d v0 = polyPath.Start.Position;
 				byte layer_alpha = LayerFilterF(v0);
@@ -180,17 +180,17 @@ namespace SliceViewer
 				bool is_below = (layer_alpha < 255);
 
 				SKPath path = MakePath(polyPath, SceneToSkiaF);
-				if (polyPath.Type == PathTypes.Deposition) {
+				if (polyPath.Type == ToolpathTypes.Deposition) {
 					paint.Color = extrudeColor;
 					paint.StrokeWidth = 1.5f;
-				} else if (polyPath.Type == PathTypes.Travel) {
+				} else if (polyPath.Type == ToolpathTypes.Travel) {
 					if (is_below)
 						return;
                     if (ShowTravels == false)
                         return;
 					paint.Color = travelColor;
 					paint.StrokeWidth = 3;
-				} else if (polyPath.Type == PathTypes.PlaneChange) {
+				} else if (polyPath.Type == ToolpathTypes.PlaneChange) {
 					if (is_below)
 						return;
                     if (ShowTravels == false)
@@ -212,11 +212,11 @@ namespace SliceViewer
 
 				if (is_below == false && ShowPathStartPoints) {
 					Vector2f pt = SceneXFormF(polyPath.Start.Position.xy);
-					if (polyPath.Type == PathTypes.Deposition) {
+					if (polyPath.Type == ToolpathTypes.Deposition) {
 						canvas.DrawCircle(pt.x, pt.y, pointR, paint);
-					} else if (polyPath.Type == PathTypes.Travel) {
+					} else if (polyPath.Type == ToolpathTypes.Travel) {
 						canvas.DrawCircle(pt.x, pt.y, pointR, paint);
-					} else if (polyPath.Type == PathTypes.PlaneChange) {
+					} else if (polyPath.Type == ToolpathTypes.PlaneChange) {
 						paint.Style = SKPaintStyle.Fill;
 						canvas.DrawCircle(pt.x, pt.y, 4f, paint);
 						paint.Style = SKPaintStyle.Stroke;
@@ -234,13 +234,13 @@ namespace SliceViewer
 
 
 
-        private void DrawLayerPoints(PathSet pathSetIn, SKCanvas canvas, SKPaint paint)
+        private void DrawLayerPoints(ToolpathSet pathSetIn, SKCanvas canvas, SKPaint paint)
         {
 
             SKColor pointColor = SkiaUtil.Color(0, 0, 0, 255);
             float pointR = 1.5f;
 
-            Action<LinearPath3<PathVertex>> drawPathPoints = (polyPath) => {
+            Action<LinearToolpath3<PrintVertex>> drawPathPoints = (polyPath) => {
                 if (LayerFilterF(polyPath.Start.Position) < 255)
                     return;
                 paint.Color = SkiaUtil.Color(pointColor, 255);
@@ -262,7 +262,7 @@ namespace SliceViewer
 
 
 
-        private void DrawFill(PathSet pathSetIn, SKCanvas baseCanvas)
+        private void DrawFill(ToolpathSet pathSetIn, SKCanvas baseCanvas)
         {
             SKColor fillColor = SkiaUtil.Color(255, 0, 255, 255);
 
@@ -283,8 +283,8 @@ namespace SliceViewer
                     paint.StrokeJoin = SKStrokeJoin.Round;
                     paint.Color = fillColor;
 
-                    Action<LinearPath3<PathVertex>> drawPath3F = (polyPath) => {
-                        if (polyPath.Type != PathTypes.Deposition)
+                    Action<LinearToolpath3<PrintVertex>> drawPath3F = (polyPath) => {
+                        if (polyPath.Type != ToolpathTypes.Deposition)
                             return;
                         Vector3d v0 = polyPath.Start.Position;
                         byte layer_alpha = LayerFilterF(v0);
@@ -319,7 +319,7 @@ namespace SliceViewer
         /// in such a way that overlap regions are highlighted. However it does not work yet,
         /// need to draw continuous SKPaths as much as possible but break at direction changes.
         /// </summary>
-        private void DrawFillOverlaps(PathSet pathSetIn, SKCanvas baseCanvas)
+        private void DrawFillOverlaps(ToolpathSet pathSetIn, SKCanvas baseCanvas)
         {
             SKColor fillColor = SkiaUtil.Color(255, 0, 255, 64);
 
@@ -331,8 +331,8 @@ namespace SliceViewer
                 paint.StrokeJoin = SKStrokeJoin.Round;
                 paint.Color = fillColor;
 
-                Action<LinearPath3<PathVertex>> drawPath3F = (polyPath) => {
-                    if (polyPath.Type != PathTypes.Deposition)
+                Action<LinearToolpath3<PrintVertex>> drawPath3F = (polyPath) => {
+                    if (polyPath.Type != ToolpathTypes.Deposition)
                         return;
                     Vector3d v0 = polyPath.Start.Position;
                     byte layer_alpha = LayerFilterF(v0);
@@ -368,7 +368,7 @@ namespace SliceViewer
 		/// in such a way that overlap regions are highlighted. However it does not work yet,
 		/// need to draw continuous SKPaths as much as possible but break at direction changes.
 		/// </summary>
-		private void DrawFillOverlapsIntegrate(PathSet pathSetIn, SKCanvas baseCanvas)
+		private void DrawFillOverlapsIntegrate(ToolpathSet pathSetIn, SKCanvas baseCanvas)
 		{
 			SKColor fillColor = SkiaUtil.Color(255, 0, 255, 5);
 			float path_diam = dimensionScale * PathDiameterMM;
@@ -381,8 +381,8 @@ namespace SliceViewer
 				paint.Style = SKPaintStyle.Fill;
 				paint.Color = fillColor;
 
-				Action<LinearPath3<PathVertex>> drawPath3F = (polyPath) => {
-					if (polyPath.Type != PathTypes.Deposition)
+				Action<LinearToolpath3<PrintVertex>> drawPath3F = (polyPath) => {
+					if (polyPath.Type != ToolpathTypes.Deposition)
 						return;
 					Vector3d v0 = polyPath.Start.Position;
 					byte layer_alpha = LayerFilterF(v0);
@@ -412,7 +412,7 @@ namespace SliceViewer
 
 
 
-        private void DrawPathLabels(PathSet pathSetIn, SKCanvas canvas, SKPaint paint) 
+        private void DrawPathLabels(ToolpathSet pathSetIn, SKCanvas canvas, SKPaint paint) 
 		{
 			int counter = 1;
 
@@ -422,7 +422,7 @@ namespace SliceViewer
 			paint.StrokeWidth = 1;
 			paint.TextSize = 15.0f;
 
-			Action<LinearPath3<PathVertex>> drawLabelF = (polyPath) => {
+			Action<LinearToolpath3<PrintVertex>> drawLabelF = (polyPath) => {
 				Vector3d v0 = polyPath.Start.Position;
 				byte layer_alpha = LayerFilterF(v0);
 				if (layer_alpha < 255)
@@ -433,9 +433,9 @@ namespace SliceViewer
 
 				Vector3d vPos = v0;
 				float shiftX = 0, shiftY = 0;
-				if ( polyPath.Type == PathTypes.Travel ) {
+				if ( polyPath.Type == ToolpathTypes.Travel ) {
 					vPos = (polyPath.Start.Position + polyPath.End.Position) * 0.5;
-				} else if ( polyPath.Type == PathTypes.PlaneChange ) {
+				} else if ( polyPath.Type == ToolpathTypes.PlaneChange ) {
 					shiftY = paint.TextSize * 0.5f;
 					//shiftX = -paint.TextSize * 0.5f;
 					paint.Color = SKColors.DarkRed;
@@ -462,7 +462,7 @@ namespace SliceViewer
 
 
 
-        private void MarkFloatingEndpointsAndCorners(PathSet pathSetIn, SKCanvas canvas, SKPaint paint)
+        private void MarkFloatingEndpointsAndCorners(ToolpathSet pathSetIn, SKCanvas canvas, SKPaint paint)
         {
             double FloatingStartDistThreshMM = PathDiameterMM * 0.6f;
 
@@ -476,8 +476,8 @@ namespace SliceViewer
             SKColor start_color = SKColors.Red.WithAlpha(128);
             SKColor end_color = SKColors.Orange.WithAlpha(128);
 
-            Action<LinearPath3<PathVertex>> drawFloatF = (polyPath) => {
-                if (polyPath.Type != PathTypes.Deposition)
+            Action<LinearToolpath3<PrintVertex>> drawFloatF = (polyPath) => {
+                if (polyPath.Type != ToolpathTypes.Deposition)
                     return;
 
                 Vector3d v0 = polyPath.Start.Position;
@@ -582,8 +582,8 @@ namespace SliceViewer
             below_grid = new SegmentHashGrid2d<Segment2d>(3 * maxLen, invalid);
             current_grid = new SegmentHashGrid2d<Segment2d>(3 * maxLen, invalid);
 
-            Action<LinearPath3<PathVertex>> pathFuncF = (polyPath) => {
-                if (polyPath.Type != PathTypes.Deposition)
+            Action<LinearToolpath3<PrintVertex>> pathFuncF = (polyPath) => {
+                if (polyPath.Type != ToolpathTypes.Deposition)
                     return;
 
                 Vector3d v0 = polyPath.Start.Position;
@@ -630,18 +630,18 @@ namespace SliceViewer
 
 
 
-        static void ProcessLinearPaths(PathSet pathSetIn, Action<LinearPath3<PathVertex>> processF)
+        static void ProcessLinearPaths(ToolpathSet pathSetIn, Action<LinearToolpath3<PrintVertex>> processF)
         {
-            Action<IPath> drawPath = (path) => {
-                if (path is LinearPath3<PathVertex>)
-                    processF(path as LinearPath3<PathVertex>);
+            Action<IToolpath> drawPath = (path) => {
+                if (path is LinearToolpath3<PrintVertex>)
+                    processF(path as LinearToolpath3<PrintVertex>);
                 // else we might have other path type...
             };
-            Action<IPathSet> drawPaths = null;
+            Action<IToolpathSet> drawPaths = null;
             drawPaths = (pathList) => {
-                foreach (IPath path in pathList) {
-                    if (path is IPathSet)
-                        drawPaths(path as IPathSet);
+                foreach (IToolpath path in pathList) {
+                    if (path is IToolpathSet)
+                        drawPaths(path as IToolpathSet);
                     else
                         drawPath(path);
                 }
@@ -661,7 +661,7 @@ namespace SliceViewer
         }
 
 
-        static SKPath MakePath<T>(LinearPath3<T> path, Func<Vector2d, SKPoint> mapF) where T : IPathVertex
+        static SKPath MakePath<T>(LinearToolpath3<T> path, Func<Vector2d, SKPoint> mapF) where T : IToolpathVertex
         {
             SKPath p = new SKPath();
             p.MoveTo(mapF(path[0].Position.xy));
@@ -670,7 +670,7 @@ namespace SliceViewer
             return p;
         }
 
-        static List<SKPath> MakePathSegments<T>(LinearPath3<T> path, Func<Vector2d, SKPoint> mapF, double angleThreshD) where T : IPathVertex
+        static List<SKPath> MakePathSegments<T>(LinearToolpath3<T> path, Func<Vector2d, SKPoint> mapF, double angleThreshD) where T : IToolpathVertex
         {
             List<SKPath> result = new List<SKPath>();
 
@@ -722,18 +722,18 @@ namespace SliceViewer
 
         public List<PolyLine2d> GetPolylinesForLayer(int layer)
         {
-            PathSet pathSetIn = Paths;
+            ToolpathSet pathSetIn = Paths;
 
             SKColor extrudeColor = SkiaUtil.Color(0, 0, 0, 255);
             Interval1d layer_zrange = Layers.GetLayerZInterval(layer);
 
             List<PolyLine2d> polylines = new List<PolyLine2d>();
 
-            Action<LinearPath3<PathVertex>> drawPath3F = (polyPath) => {
+            Action<LinearToolpath3<PrintVertex>> drawPath3F = (polyPath) => {
                 Vector3d v0 = polyPath.Start.Position;
                 if (layer_zrange.Contains(v0.z) == false)
                     return;
-                if (polyPath.Type != PathTypes.Deposition)
+                if (polyPath.Type != ToolpathTypes.Deposition)
                     return;
 
                 PolyLine2d pline = new PolyLine2d();
