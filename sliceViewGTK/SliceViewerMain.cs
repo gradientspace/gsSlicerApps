@@ -22,6 +22,9 @@ namespace SliceViewer
 		public static SingleMaterialFFFSettings LastSettings;
 
 
+        public static bool SHOW_RELOADED_GCODE_PATHS = false;
+
+
 		public static void Main(string[] args)
 		{
 			ExceptionManager.UnhandledException += delegate (UnhandledExceptionArgs expArgs) {
@@ -31,16 +34,14 @@ namespace SliceViewer
 
 			Gtk.Application.Init();
 
-			MainWindow = new Window("SliceViewer");
+			MainWindow = new Window("gsSlicerViewer");
 			MainWindow.SetDefaultSize(900, 600);
 			MainWindow.SetPosition(WindowPosition.Center);
 			MainWindow.DeleteEvent += delegate {
 				Gtk.Application.Quit();
 			};
 
-
-
-			string sPath = "../../../sample_files/disc_single_layer.gcode";
+            string sPath = "../../../sample_files/disc_single_layer.gcode";
             //string sPath = "../../../sample_files/disc_0p6mm.gcode";
             //string sPath = "../../../sample_files/square_linearfill.gcode";
             //string sPath = "../../../sample_files/thin_hex_test_part.gcode";
@@ -52,7 +53,6 @@ namespace SliceViewer
 
             DMesh3 readMesh = null;
 
-#if true
             //GCodeFile genGCode = MakerbotTests.SimpleFillTest();
             //GCodeFile genGCode = MakerbotTests.SimpleShellsTest();
             //GCodeFile genGCode = MakerbotTests.InfillBoxTest();
@@ -82,9 +82,11 @@ namespace SliceViewer
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/bunny_hollow_5cm.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/notch_test_1.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/variable_thins.obj");
-            readMesh = StandardMeshReader.ReadMesh("../../../sample_files/arrow_posx.obj");
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/arrow_posx.obj");
             //readMesh = StandardMeshReader.ReadMesh("c:\\scratch\\bunny_fixed_flat.obj");
             //MeshUtil.ScaleMesh(readMesh, Frame3f.Identity, 1.1f*Vector3f.One);
+
+            //readMesh = CalibrationModelGenerator.MakePrintStepSizeTest(10.0f, 10.0f, 0.1, 1.0, 10);
 
             //DMesh3[] meshComponents = MeshConnectedComponents.Separate(readMesh);
             DMesh3[] meshComponents = new DMesh3[] { readMesh };
@@ -95,18 +97,18 @@ namespace SliceViewer
             AxisAlignedBox3d bounds = meshes.TotalBounds;
             AxisAlignedBox2d bounds2 = new AxisAlignedBox2d(bounds.Center.xy, bounds.Width / 2, bounds.Height / 2);
 
-#endif
+            View = new SliceViewCanvas();
+            MainWindow.Add(View);
 
             if (readMesh != null) {
                 // generate gcode file for mesh
                 sPath = GenerateGCodeForMeshes(meshes);
             }
 
+            if (SHOW_RELOADED_GCODE_PATHS) {
+                LoadGeneratedGCodeFile(sPath);
+            }
 
-            View = new SliceViewCanvas();
-            MainWindow.Add(View);
-
-            LoadGeneratedGCodeFile(sPath);
             //GenerateGCodeForSliceFile("c:\\scratch\\output.gslice");
 
             MainWindow.KeyReleaseEvent += Window_KeyReleaseEvent;
@@ -161,6 +163,10 @@ namespace SliceViewer
             // run print generator
             SingleMaterialFFFPrintGenerator printGen =
                 new SingleMaterialFFFPrintGenerator(meshes, slices, settings);
+
+            printGen.LayerPostProcessor = new SupportConnectionPostProcessor() { ZOffsetMM = 0.2f };
+            printGen.AccumulatePathSet = (SHOW_RELOADED_GCODE_PATHS == false);
+
             printGen.Generate();
             GCodeFile genGCode = printGen.Result;
 
@@ -172,6 +178,10 @@ namespace SliceViewer
 
             if (settings is MakerbotSettings) {
                 System.Diagnostics.Process.Start(GPX_PATH, "-p " + sWritePath);
+            }
+
+            if ( SHOW_RELOADED_GCODE_PATHS == false) {
+                View.SetPaths(printGen.AccumulatedPaths);
             }
 
             return sWritePath;
@@ -189,17 +199,19 @@ namespace SliceViewer
             }
 
             // configure settings
-            MakerbotSettings settings = new MakerbotSettings();
+            MakerbotSettings settings = new MakerbotSettings(Makerbot.Models.Replicator2);
             //MonopriceSettings settings = new MonopriceSettings(Monoprice.Models.MP_Select_Mini_V2);
             //PrintrbotSettings settings = new PrintrbotSettings(Printrbot.Models.Plus);
             settings.Shells = 2;
-            settings.InteriorSolidRegionShells = 0;
-            settings.SparseLinearInfillStepX = 5;
-            settings.ClipSelfOverlaps = false;
-            settings.EnableSupport = false;
+            settings.SparseLinearInfillStepX = 10;
+            settings.InteriorSolidRegionShells = 1;
+            settings.ClipSelfOverlaps = true;
+            settings.EnableSupport = true;
+            settings.SupportSpacingStepX = 5.0;
+            settings.SupportVolumeScale = 1.0;
 
-            //settings.RoofLayers = settings.FloorLayers = 0;
-            //settings.LayerRangeFilter = new Interval1i(0,slices.Count/2);
+            //settings.LayerRangeFilter = new Interval1i(0,10);
+
 
             LastSettings = settings.CloneAs<SingleMaterialFFFSettings>();
 
@@ -209,6 +221,10 @@ namespace SliceViewer
             // run print generator
             SingleMaterialFFFPrintGenerator printGen =
                 new SingleMaterialFFFPrintGenerator(meshes, slices, settings);
+
+            printGen.LayerPostProcessor = new SupportConnectionPostProcessor() { ZOffsetMM = 0.15f };
+            printGen.AccumulatePathSet = (SHOW_RELOADED_GCODE_PATHS == false);
+
             printGen.Generate();
             GCodeFile genGCode = printGen.Result;
 
@@ -222,7 +238,11 @@ namespace SliceViewer
                 System.Diagnostics.Process.Start(GPX_PATH, "-p " + sWritePath);
             }
 
-            LoadGeneratedGCodeFile(sWritePath);
+            if (SHOW_RELOADED_GCODE_PATHS) {
+                LoadGeneratedGCodeFile(sWritePath);
+            } else {
+                View.SetPaths(printGen.AccumulatedPaths);
+            }
         }
 
 

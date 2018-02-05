@@ -52,3 +52,4 @@ sample_output/*
 .vs/
 SLIC3R_LAST.gcode
 sample_files/external_gcode/
+sample_files/local/

@@ -167,7 +167,8 @@ namespace SliceViewer
 
 			SKColor extrudeColor = SkiaUtil.Color(0, 0, 0, 255);
 			SKColor travelColor = SkiaUtil.Color(0, 255, 0, 128);
-			SKColor startColor = SkiaUtil.Color(255, 0, 0, 128);
+            SKColor supportColor = SkiaUtil.Color(0, 200, 200, 255);
+            SKColor startColor = SkiaUtil.Color(255, 0, 0, 128);
 			SKColor planeColor = SkiaUtil.Color(0, 0, 255, 128);
 			float pointR = 3f;
 
@@ -181,8 +182,11 @@ namespace SliceViewer
 
 				SKPath path = MakePath(polyPath, SceneToSkiaF);
 				if (polyPath.Type == ToolpathTypes.Deposition) {
-					paint.Color = extrudeColor;
-					paint.StrokeWidth = 1.5f;
+                    if ( (polyPath.TypeModifiers & FillTypeFlags.SupportMaterial) != 0 )
+                        paint.Color = supportColor;
+                    else
+                        paint.Color = extrudeColor;
+                    paint.StrokeWidth = 1.5f;
 				} else if (polyPath.Type == ToolpathTypes.Travel) {
 					if (is_below)
 						return;
