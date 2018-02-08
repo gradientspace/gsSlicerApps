@@ -181,7 +181,7 @@ namespace SliceViewer
             }
 
             if ( SHOW_RELOADED_GCODE_PATHS == false) {
-                View.SetPaths(printGen.AccumulatedPaths);
+                View.SetPaths(printGen.AccumulatedPaths, settings);
             }
 
             return sWritePath;
@@ -241,7 +241,7 @@ namespace SliceViewer
             if (SHOW_RELOADED_GCODE_PATHS) {
                 LoadGeneratedGCodeFile(sWritePath);
             } else {
-                View.SetPaths(printGen.AccumulatedPaths);
+                View.SetPaths(printGen.AccumulatedPaths, settings);
             }
         }
 

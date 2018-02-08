@@ -50,9 +50,10 @@ namespace SliceViewer
 		int currentLayer = 0;
 		Func<Vector3d, byte> LayerFilterF = (v) => { return 255; };
 
-		public void SetPaths(ToolpathSet paths) {
+		public void SetPaths(ToolpathSet paths, SingleMaterialFFFSettings knownSettings = null) {
 			Paths = paths;
-			Layers = new LayersDetector(Paths);
+            double layer_height = (knownSettings != null) ? knownSettings.LayerHeightMM : 0;
+            Layers = new LayersDetector(Paths, layer_height);
 			CurrentLayer = 0;
         }
 
