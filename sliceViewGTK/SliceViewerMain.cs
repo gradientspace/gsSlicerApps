@@ -14,7 +14,7 @@ namespace SliceViewer
 
 	class MainClass
 	{
-        const string GPX_PATH = "gpx.exe";
+		static string GPX_PATH = Util.IsRunningOnMono() ? "gpx" : "gpx.exe";
 
 		public static Window MainWindow;
 		public static SliceViewCanvas View;
