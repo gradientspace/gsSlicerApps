@@ -141,7 +141,7 @@
 
   <!-- mac post-build event -->
   <Target Name="AfterBuild">
-    <Exec Command="cp $(SolutionDir)/bin/gpx $(TargetDir)" Condition="'$(Os)'=='Unix'" />
+    <Exec Command="cp $(SolutionDir)bin/gpx $(TargetDir)" Condition="'$(Os)'=='Unix'" />
   </Target>
 
 </Project>
