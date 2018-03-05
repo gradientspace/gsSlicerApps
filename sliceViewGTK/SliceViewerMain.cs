@@ -85,6 +85,10 @@ namespace SliceViewer
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/arrow_posx.obj");
             //readMesh = StandardMeshReader.ReadMesh("c:\\scratch\\bunny_fixed_flat.obj");
             //MeshUtil.ScaleMesh(readMesh, Frame3f.Identity, 1.1f*Vector3f.One);
+            readMesh = StandardMeshReader.ReadMesh("../../../sample_files/edge_overhang.obj");
+
+            DMesh3 supportMesh = null;
+            supportMesh = StandardMeshReader.ReadMesh("../../../sample_files/edge_overhang_support.obj");
 
             //readMesh = CalibrationModelGenerator.MakePrintStepSizeTest(10.0f, 10.0f, 0.1, 1.0, 10);
 
@@ -93,6 +97,9 @@ namespace SliceViewer
 
             PrintMeshAssembly meshes = new PrintMeshAssembly();
             meshes.AddMeshes(meshComponents);
+
+            if (supportMesh != null)
+                meshes.AddMesh(supportMesh, PrintMeshOptions.Support);
 
             AxisAlignedBox3d bounds = meshes.TotalBounds;
             AxisAlignedBox2d bounds2 = new AxisAlignedBox2d(bounds.Center.xy, bounds.Width / 2, bounds.Height / 2);
