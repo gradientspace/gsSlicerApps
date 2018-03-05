@@ -66,8 +66,6 @@ namespace SliceViewer
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/bunny_solid_5cm_min.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/basic_step.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/slab_5deg.obj");
-            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/unsupported_slab_5deg.obj");
-            readMesh = StandardMeshReader.ReadMesh("../../../sample_files/overhang_slab_1.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/sphere_angles_1cm.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/inverted_cone_1.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/tube_adapter.obj");
@@ -85,10 +83,14 @@ namespace SliceViewer
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/arrow_posx.obj");
             //readMesh = StandardMeshReader.ReadMesh("c:\\scratch\\bunny_fixed_flat.obj");
             //MeshUtil.ScaleMesh(readMesh, Frame3f.Identity, 1.1f*Vector3f.One);
-            readMesh = StandardMeshReader.ReadMesh("../../../sample_files/edge_overhang.obj");
+
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/unsupported_slab_5deg.obj");
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/overhang_slab_1.obj");
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/edge_overhang.obj");
+            readMesh = StandardMeshReader.ReadMesh("../../../sample_files/support_tilted_cone.obj");
 
             DMesh3 supportMesh = null;
-            supportMesh = StandardMeshReader.ReadMesh("../../../sample_files/edge_overhang_support.obj");
+            //supportMesh = StandardMeshReader.ReadMesh("../../../sample_files/edge_overhang_support.obj");
 
             //readMesh = CalibrationModelGenerator.MakePrintStepSizeTest(10.0f, 10.0f, 0.1, 1.0, 10);
 
@@ -150,6 +152,7 @@ namespace SliceViewer
             //settings.LayerRangeFilter = new Interval1i(245, 255);
 
             settings.EnableSupport = true;
+            settings.EnableSupportShell = true;
 
 			//settings.Machine.NozzleDiamMM = 0.75;
 			//settings.Machine.MaxLayerHeightMM = 0.5;
