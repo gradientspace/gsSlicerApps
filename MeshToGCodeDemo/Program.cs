@@ -26,10 +26,10 @@ namespace MeshToGCodeDemo
             meshes.AddMesh(mesh, PrintMeshOptions.Default);
 
             // create settings
-            MakerbotSettings settings = new MakerbotSettings(Makerbot.Models.Replicator2);
+            //MakerbotSettings settings = new MakerbotSettings(Makerbot.Models.Replicator2);
             //PrintrbotSettings settings = new PrintrbotSettings(Printrbot.Models.Plus);
             //MonopriceSettings settings = new MonopriceSettings(Monoprice.Models.MP_Select_Mini_V2);
-            //RepRapSettings settings = new RepRapSettings(RepRap.Models.Unknown);
+            RepRapSettings settings = new RepRapSettings(RepRap.Models.Unknown);
 
             // do slicing
             MeshPlanarSlicer slicer = new MeshPlanarSlicer() {
