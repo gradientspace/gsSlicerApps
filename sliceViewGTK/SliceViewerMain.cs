@@ -161,7 +161,9 @@ namespace SliceViewer
 
 			//settings.LayerRangeFilter = new Interval1i(130, 140);
 
-			LastSettings = settings.CloneAs<SingleMaterialFFFSettings>();
+            LastSettings = settings.CloneAs<SingleMaterialFFFSettings>();
+
+            System.Console.WriteLine("Slicing...");
 
             // slice meshes
             MeshPlanarSlicer slicer = new MeshPlanarSlicer() {
@@ -169,6 +171,8 @@ namespace SliceViewer
             };
             slicer.Add(meshes);
             PlanarSliceStack slices = slicer.Compute();
+
+            System.Console.WriteLine("Generating GCode...");
 
             // run print generator
             SingleMaterialFFFPrintGenerator printGen =
@@ -179,6 +183,8 @@ namespace SliceViewer
 
             printGen.Generate();
             GCodeFile genGCode = printGen.Result;
+
+            System.Console.WriteLine("Writing GCode...");
 
             string sWritePath = "../../../sample_output/generated.gcode";
             StandardGCodeWriter writer = new StandardGCodeWriter();

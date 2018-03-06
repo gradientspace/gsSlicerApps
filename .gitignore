@@ -48,3 +48,5 @@ sample_output/*
 SLIC3R_LAST.gcode
 sample_files/external_gcode/
 sample_files/local/
+MeshToGCodeDemo/bin/
+MeshToGCodeDemo/obj/
