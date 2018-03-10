@@ -50,3 +50,5 @@ sample_files/external_gcode/
 sample_files/local/
 MeshToGCodeDemo/bin/
 MeshToGCodeDemo/obj/
+GeneratedPathsDemo/bin/
+GeneratedPathsDemo/obj/
