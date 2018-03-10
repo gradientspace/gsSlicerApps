@@ -9,6 +9,8 @@ namespace GeneratedPathsDemo
 {
     class Program
     {
+		static string OUT_PATH = Util.IsRunningOnMono() ? "../../../sample_output/" : "c:\\demo\\";
+
         static void Main(string[] args)
         {
             var file_accumulator = new GCodeFileAccumulator();
@@ -30,7 +32,7 @@ namespace GeneratedPathsDemo
             compiler.End();
 
             GCodeFile gcode = file_accumulator.File;
-            using (StreamWriter w = new StreamWriter("c:\\demo\\generated.gcode")) {
+			using (StreamWriter w = new StreamWriter(OUT_PATH+"generated.gcode")) {
                 StandardGCodeWriter writer = new StandardGCodeWriter();
                 writer.WriteFile(gcode, w);
             }
@@ -236,37 +238,47 @@ namespace GeneratedPathsDemo
             // layer-up
             builder.AppendZChange(settings.LayerHeightMM, settings.ZTravelSpeed);
 
-            // draw circle
-            int N = 256;
+            int N = 24;
             Polygon2d circle = Polygon2d.MakeCircle(15.0f, N, -MathUtil.HalfPI);
 
-            builder.AppendTravel(circle[0], settings.RapidTravelSpeed);
-            for (int k = 1; k <= N; k++)
-                builder.AppendExtrude(circle[k % N], settings.CarefulExtrudeSpeed);
+			int REPEAT = 5;
 
-            // layer-up
-            builder.AppendZChange(settings.LayerHeightMM, settings.ZTravelSpeed);
+			for (int ri = 0; ri < REPEAT; ++ri) {
 
-            double freq = 12;
-            double height = 3.0f;
-            double z_layer = builder.Position.z;
-            for (int k = 1; k <= N; k++) {
-                Vector2d p2 = circle[k % N];
-                double angle = Math.Atan2(p2.y, p2.x);
+				builder.AppendTravel(circle[0], settings.RapidTravelSpeed);
+				for (int k = 1; k <= N; k++)
+					builder.AppendExtrude(circle[k % N], settings.CarefulExtrudeSpeed / 4);
+				builder.AppendZChange(settings.LayerHeightMM, settings.ZTravelSpeed);
 
-                double t = Math.Max(0, Math.Sin(freq * angle));
-                double z = z_layer + t * height;
-                Vector3d p3 = new Vector3d(p2.x, p2.y, z);
-                builder.AppendExtrude(p3, settings.CarefulExtrudeSpeed / 8);
-            }
+				builder.AppendTravel(circle[0], settings.RapidTravelSpeed);
+				for (int k = 1; k <= N; k++)
+					builder.AppendExtrude(circle[k % N], settings.CarefulExtrudeSpeed / 4);
+				builder.AppendZChange(settings.LayerHeightMM, settings.ZTravelSpeed);
 
-            // move up to z_high
-            builder.AppendZChange(height, settings.ZTravelSpeed);
+				if (ri == REPEAT - 1)
+					break;
 
-            // draw circle again
-            builder.AppendTravel(circle[0], settings.RapidTravelSpeed);
-            for (int k = 1; k <= N; k++)
-                builder.AppendExtrude(circle[k % N], settings.RapidExtrudeSpeed);
+				// make on the move up we should also move 'back' a bit,
+				// to counteract forward pull force?
+
+				double height = 1.0f;
+				double h_fudge = 0.0f;
+				double z_stick = -0.05f;
+				double z_layer = builder.Position.z;
+				double top_z = z_layer + height + h_fudge;
+				for (int k = 0; k < N-1; k++) {
+					Vector2d pcur = circle[k%N], pnext = circle[(k+1)%N];
+					Vector3d pUp = new Vector3d(pcur.x, pcur.y, top_z);
+					builder.AppendExtrude(pUp, settings.CarefulExtrudeSpeed / 8);
+					builder.AppendDwell(500, false);
+					Vector3d pDown = new Vector3d(pnext.x, pnext.y, z_layer+z_stick);
+					builder.AppendExtrude(pDown, settings.CarefulExtrudeSpeed / 8);
+				}
+
+				// move up to z_high
+				Vector3d vpos = new Vector3d(circle[0].x, circle[0].y, z_layer+height);
+				builder.AppendExtrude(vpos, settings.CarefulExtrudeSpeed / 8);
+			}
 
             compiler.AppendPaths(builder.Paths);
         }
