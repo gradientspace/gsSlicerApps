@@ -13,8 +13,8 @@ namespace GeneratedPathsDemo
 
         static void Main(string[] args)
         {
-            var file_accumulator = new GCodeFileAccumulator();
-            var builder = new GCodeBuilder(file_accumulator);
+			var gcode_accumulator = new GCodeFileAccumulator();
+            var builder = new GCodeBuilder(gcode_accumulator);
             MakerbotSettings settings = new MakerbotSettings();
 
             SingleMaterialFFFCompiler compiler = new SingleMaterialFFFCompiler(
@@ -31,7 +31,7 @@ namespace GeneratedPathsDemo
 
             compiler.End();
 
-            GCodeFile gcode = file_accumulator.File;
+            GCodeFile gcode = gcode_accumulator.File;
 			using (StreamWriter w = new StreamWriter(OUT_PATH+"generated.gcode")) {
                 StandardGCodeWriter writer = new StandardGCodeWriter();
                 writer.WriteFile(gcode, w);
@@ -43,7 +43,8 @@ namespace GeneratedPathsDemo
         static void generate_stacked_polygon(SingleMaterialFFFCompiler compiler,
                                              SingleMaterialFFFSettings settings)
         {
-            for (int layer_i = 0; layer_i < 10; ++layer_i) {
+			int NLayers = 10;
+			for (int layer_i = 0; layer_i < NLayers; ++layer_i) {
 
                 // create data structures for organizing this layer
                 ToolpathSetBuilder layer_builder = new ToolpathSetBuilder();
@@ -95,7 +96,6 @@ namespace GeneratedPathsDemo
 
                 // start with circle
                 FillPolygon2d circle_poly = new FillPolygon2d(Polygon2d.MakeCircle(radius, NSteps));
-                circle_poly.TypeFlags = FillTypeFlags.OuterPerimeter;
 
                 // apply a wave deformation to circle, with wave height increasing with Z
                 double layer_scale = MathUtil.Lerp(0, scale, (double)layer_i / (double)NLayers);
@@ -107,6 +107,7 @@ namespace GeneratedPathsDemo
                     circle_poly[i] = r * v.Normalized;
                 }
 
+				circle_poly.TypeFlags = FillTypeFlags.OuterPerimeter;
                 scheduler.AppendPolygon2d(circle_poly);
 
                 // pass paths to compiler
