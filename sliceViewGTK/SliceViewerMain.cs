@@ -87,7 +87,10 @@ namespace SliceViewer
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/unsupported_slab_5deg.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/overhang_slab_1.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/edge_overhang.obj");
-            readMesh = StandardMeshReader.ReadMesh("../../../sample_files/support_tilted_cone.obj");
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/support_tilted_cone.obj");
+			//readMesh = StandardMeshReader.ReadMesh("../../../sample_files/support_mintip.obj");
+			readMesh = StandardMeshReader.ReadMesh("../../../sample_files/support_mintip_vtx.obj");
+			//readMesh = StandardMeshReader.ReadMesh("../../../sample_files/tilted_thin_slab.obj");
 
             DMesh3 supportMesh = null;
             //supportMesh = StandardMeshReader.ReadMesh("../../../sample_files/edge_overhang_support.obj");
@@ -140,6 +143,8 @@ namespace SliceViewer
 
         static string GenerateGCodeForMeshes(PrintMeshAssembly meshes)
         {
+			bool ENABLE_SUPPORT_ZSHIFT = false;
+
 			// configure settings
 			MakerbotSettings settings = new MakerbotSettings(Makerbot.Models.Replicator2);
 			//MonopriceSettings settings = new MonopriceSettings(Monoprice.Models.MP_Select_Mini_V2);
@@ -178,6 +183,7 @@ namespace SliceViewer
             SingleMaterialFFFPrintGenerator printGen =
                 new SingleMaterialFFFPrintGenerator(meshes, slices, settings);
 
+			if (ENABLE_SUPPORT_ZSHIFT)
             printGen.LayerPostProcessor = new SupportConnectionPostProcessor() { ZOffsetMM = 0.2f };
             printGen.AccumulatePathSet = (SHOW_RELOADED_GCODE_PATHS == false);
 
