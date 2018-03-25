@@ -413,7 +413,7 @@ namespace SliceViewer
                 SliceViewerTests.TestFill();
                 //SliceViewerTests.TestOffset();
 
-            } else if ( args.Event.Key == Gdk.Key.e ) {
+            } else if ( args.Event.Key == Gdk.Key.E ) {
                 List<PolyLine2d> paths = View.GetPolylinesForLayer(View.CurrentLayer);
                 SVGWriter writer = new SVGWriter();
                 SVGWriter.Style lineStyle = SVGWriter.Style.Outline("black", 0.2f);
