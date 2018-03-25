@@ -143,7 +143,7 @@ namespace SliceViewer
 
         static string GenerateGCodeForMeshes(PrintMeshAssembly meshes)
         {
-			bool ENABLE_SUPPORT_ZSHIFT = false;
+			bool ENABLE_SUPPORT_ZSHIFT = true;
 
 			// configure settings
 			MakerbotSettings settings = new MakerbotSettings(Makerbot.Models.Replicator2);
