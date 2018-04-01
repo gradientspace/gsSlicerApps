@@ -88,9 +88,12 @@ namespace SliceViewer
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/overhang_slab_1.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/edge_overhang.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/support_tilted_cone.obj");
-			//readMesh = StandardMeshReader.ReadMesh("../../../sample_files/support_mintip.obj");
-			readMesh = StandardMeshReader.ReadMesh("../../../sample_files/support_mintip_vtx.obj");
+			readMesh = StandardMeshReader.ReadMesh("../../../sample_files/support_mintip.obj");
+			//readMesh = StandardMeshReader.ReadMesh("../../../sample_files/support_mintip_vtx.obj");
 			//readMesh = StandardMeshReader.ReadMesh("../../../sample_files/tilted_thin_slab.obj");
+
+			// interesting test case for clipselfoverlaps and scheduler
+			//readMesh = StandardMeshReader.ReadMesh("../../../sample_files/Slim_Type1.stl");
 
             DMesh3 supportMesh = null;
             //supportMesh = StandardMeshReader.ReadMesh("../../../sample_files/edge_overhang_support.obj");
