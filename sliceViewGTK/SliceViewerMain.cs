@@ -159,7 +159,7 @@ namespace SliceViewer
             //settings.RoofLayers = settings.FloorLayers = 0;
             //settings.LayerRangeFilter = new Interval1i(245, 255);
 
-            settings.EnableSupport = true;
+            settings.GenerateSupport = true;
             settings.EnableSupportShell = true;
 
 			//settings.Machine.NozzleDiamMM = 0.75;
@@ -231,7 +231,7 @@ namespace SliceViewer
             settings.SparseLinearInfillStepX = 10;
             settings.InteriorSolidRegionShells = 1;
             settings.ClipSelfOverlaps = true;
-            settings.EnableSupport = true;
+            settings.GenerateSupport = true;
             settings.SupportSpacingStepX = 5.0;
             settings.SupportVolumeScale = 1.0;
 
