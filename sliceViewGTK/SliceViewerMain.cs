@@ -94,9 +94,15 @@ namespace SliceViewer
 
 			// interesting test case for clipselfoverlaps and scheduler
 			//readMesh = StandardMeshReader.ReadMesh("../../../sample_files/Slim_Type1.stl");
+            DMesh3 cavityMesh = null;
 
             DMesh3 supportMesh = null;
             //supportMesh = StandardMeshReader.ReadMesh("../../../sample_files/edge_overhang_support.obj");
+
+            // rotate to be z-up
+            //MeshTransforms.Rotate(readMesh, Vector3d.Zero, Quaternionf.AxisAngleD(Vector3f.AxisX, 90));
+            //if ( supportMesh != null )
+            //    MeshTransforms.Rotate(supportMesh, Vector3d.Zero, Quaternionf.AxisAngleD(Vector3f.AxisX, 90));
 
             //readMesh = CalibrationModelGenerator.MakePrintStepSizeTest(10.0f, 10.0f, 0.1, 1.0, 10);
 
@@ -106,6 +112,8 @@ namespace SliceViewer
             PrintMeshAssembly meshes = new PrintMeshAssembly();
             meshes.AddMeshes(meshComponents);
 
+            if (cavityMesh != null)
+                meshes.AddMesh(cavityMesh, PrintMeshOptions.Cavity);
             if (supportMesh != null)
                 meshes.AddMesh(supportMesh, PrintMeshOptions.Support);
 
@@ -154,13 +162,15 @@ namespace SliceViewer
 			//PrintrbotSettings settings = new PrintrbotSettings(Printrbot.Models.Plus);
             settings.Shells = 2;
             settings.InteriorSolidRegionShells = 0;
-            settings.SparseLinearInfillStepX = 5;
-            settings.ClipSelfOverlaps = true;
+            settings.SparseLinearInfillStepX = 10;
+            settings.ClipSelfOverlaps = false;
             //settings.RoofLayers = settings.FloorLayers = 0;
             //settings.LayerRangeFilter = new Interval1i(245, 255);
+            settings.LayerRangeFilter = new Interval1i(0, 40);
 
-            settings.GenerateSupport = true;
+            settings.GenerateSupport = false;
             settings.EnableSupportShell = true;
+            settings.SupportSolidSpace = 0.35;
 
 			//settings.Machine.NozzleDiamMM = 0.75;
 			//settings.Machine.MaxLayerHeightMM = 0.5;
