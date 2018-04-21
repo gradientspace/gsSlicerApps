@@ -113,9 +113,9 @@ namespace SliceViewer
             meshes.AddMeshes(meshComponents);
 
             if (cavityMesh != null)
-                meshes.AddMesh(cavityMesh, PrintMeshOptions.Cavity);
+				meshes.AddMesh(cavityMesh, PrintMeshOptions.Cavity());
             if (supportMesh != null)
-                meshes.AddMesh(supportMesh, PrintMeshOptions.Support);
+				meshes.AddMesh(supportMesh, PrintMeshOptions.Support());
 
             AxisAlignedBox3d bounds = meshes.TotalBounds;
             AxisAlignedBox2d bounds2 = new AxisAlignedBox2d(bounds.Center.xy, bounds.Width / 2, bounds.Height / 2);

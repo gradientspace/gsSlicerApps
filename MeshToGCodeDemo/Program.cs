@@ -23,7 +23,7 @@ namespace MeshToGCodeDemo
 
             // create print mesh set
             PrintMeshAssembly meshes = new PrintMeshAssembly();
-            meshes.AddMesh(mesh, PrintMeshOptions.Default);
+			meshes.AddMesh(mesh, PrintMeshOptions.Default());
 
             // create settings
             //MakerbotSettings settings = new MakerbotSettings(Makerbot.Models.Replicator2);
