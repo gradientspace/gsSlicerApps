@@ -17,7 +17,7 @@ namespace SliceViewer
 
 		public bool ShowIssues = false;
 
-        public float PathDiameterMM = 0.4f;
+        public float PathDiameterMM = 0.395f;
 
 
 		public enum NumberModes
@@ -169,6 +169,7 @@ namespace SliceViewer
 			SKColor extrudeColor = SkiaUtil.Color(0, 0, 0, 255);
 			SKColor travelColor = SkiaUtil.Color(0, 255, 0, 128);
             SKColor supportColor = SkiaUtil.Color(0, 200, 200, 255);
+			SKColor bridgeColor = SkiaUtil.Color(200, 100, 0, 255);
             SKColor startColor = SkiaUtil.Color(255, 0, 0, 128);
 			SKColor planeColor = SkiaUtil.Color(0, 0, 255, 128);
 			float pointR = 3f;
@@ -183,8 +184,10 @@ namespace SliceViewer
 
 				SKPath path = MakePath(polyPath, SceneToSkiaF);
 				if (polyPath.Type == ToolpathTypes.Deposition) {
-                    if ( (polyPath.TypeModifiers & FillTypeFlags.SupportMaterial) != 0 )
-                        paint.Color = supportColor;
+					if ((polyPath.TypeModifiers & FillTypeFlags.SupportMaterial) != 0)
+						paint.Color = supportColor;
+					else if ((polyPath.TypeModifiers & FillTypeFlags.BridgeSupport) != 0)
+						paint.Color = bridgeColor;
                     else
                         paint.Color = extrudeColor;
                     paint.StrokeWidth = 1.5f;
