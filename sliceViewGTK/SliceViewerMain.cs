@@ -187,6 +187,15 @@ namespace SliceViewer
             MeshPlanarSlicer slicer = new MeshPlanarSlicer() {
                 LayerHeightMM = settings.LayerHeightMM
             };
+            if (settings.StartLayers > 0) {
+                int start_layers = settings.StartLayers;
+                double std_layer_height = settings.LayerHeightMM;
+                double start_layer_height = settings.StartLayerHeightMM;
+                slicer.LayerHeightF = (layer_i) => {
+                    return (layer_i < start_layers) ? start_layer_height : std_layer_height;
+                };
+            }
+
             slicer.Add(meshes);
             PlanarSliceStack slices = slicer.Compute();
 
@@ -197,7 +206,7 @@ namespace SliceViewer
                 new SingleMaterialFFFPrintGenerator(meshes, slices, settings);
 
 			if (ENABLE_SUPPORT_ZSHIFT)
-            printGen.LayerPostProcessor = new SupportConnectionPostProcessor() { ZOffsetMM = 0.2f };
+                printGen.LayerPostProcessor = new SupportConnectionPostProcessor() { ZOffsetMM = 0.2f };
             printGen.AccumulatePathSet = (SHOW_RELOADED_GCODE_PATHS == false);
 
             printGen.Generate();
@@ -211,8 +220,8 @@ namespace SliceViewer
                 writer.WriteFile(genGCode, w);
             }
 
-            if (settings is MakerbotSettings) {
-                System.Diagnostics.Process.Start(GPX_PATH, "-p " + sWritePath);
+            if (settings is ISailfishSettings) {
+                System.Diagnostics.Process.Start(GPX_PATH, (settings as ISailfishSettings).GPXModelFlag + " -p " + sWritePath);
             }
 
             if ( SHOW_RELOADED_GCODE_PATHS == false) {

@@ -64,7 +64,7 @@ namespace GeneratedPathsDemo
                 scheduler.AppendPolygon2d(circle_poly);
 
                 // pass paths to compiler
-                compiler.AppendPaths(layer_builder.Paths);
+                compiler.AppendPaths(layer_builder.Paths, settings);
             }
         }
 
@@ -111,7 +111,7 @@ namespace GeneratedPathsDemo
                 scheduler.AppendPolygon2d(circle_poly);
 
                 // pass paths to compiler
-                compiler.AppendPaths(layer_builder.Paths);
+                compiler.AppendPaths(layer_builder.Paths, settings);
             }
         }
 
@@ -136,7 +136,7 @@ namespace GeneratedPathsDemo
             builder.AppendExtrude(new Vector2d(left, top), settings.CarefulExtrudeSpeed);
             builder.AppendExtrude(new Vector2d(left, bottom), settings.CarefulExtrudeSpeed);
 
-            compiler.AppendPaths(builder.Paths);
+            compiler.AppendPaths(builder.Paths, settings);
         }
 
 
@@ -218,7 +218,7 @@ namespace GeneratedPathsDemo
                 builder.AppendExtrude(circle[k % N], settings.RapidExtrudeSpeed);
 
 
-            compiler.AppendPaths(builder.Paths);
+            compiler.AppendPaths(builder.Paths, settings);
         }
 
 
@@ -281,7 +281,7 @@ namespace GeneratedPathsDemo
 				builder.AppendExtrude(vpos, settings.CarefulExtrudeSpeed / 8);
 			}
 
-            compiler.AppendPaths(builder.Paths);
+            compiler.AppendPaths(builder.Paths, settings);
         }
 
 
