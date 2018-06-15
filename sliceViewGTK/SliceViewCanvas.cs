@@ -17,7 +17,7 @@ namespace SliceViewer
 
 		public bool ShowIssues = false;
 
-        public float PathDiameterMM = 0.4f;
+        public float PathDiameterMM = 0.39f;
 
 
 		public enum NumberModes
@@ -46,6 +46,7 @@ namespace SliceViewer
 		}
 
 		ToolpathSet Paths;
+        PlanarSliceStack Slices;
 		LayersDetector Layers;
 		int currentLayer = 0;
 		Func<Vector3d, byte> LayerFilterF = (v) => { return 255; };
@@ -56,6 +57,12 @@ namespace SliceViewer
             Layers = new LayersDetector(Paths, layer_height);
 			CurrentLayer = 0;
         }
+
+        public void SetSlices(PlanarSliceStack slices)
+        {
+            Slices = slices;
+        }
+
 
 		public int CurrentLayer {
 			get { return currentLayer; }
@@ -132,7 +139,11 @@ namespace SliceViewer
 				paint.StrokeWidth = 1;
                 paint.Style = SKPaintStyle.Stroke;
 
-				if ( ShowDepositMoves )
+                //if (Slices != null)
+                //    DrawLayerSlice(Slices, canvas, paint);
+
+
+                if ( ShowDepositMoves )
 					DrawLayerPaths(Paths, canvas, paint);
 
                 if (ShowFillArea) {
@@ -157,6 +168,27 @@ namespace SliceViewer
             }
         }
 
+
+
+
+
+        private void DrawLayerSlice(PlanarSliceStack stack, SKCanvas canvas, SKPaint paint)
+        {
+            SKColor pathColor = SkiaUtil.Color(255, 0, 0, 255);
+
+            paint.Color = pathColor;
+            paint.Style = SKPaintStyle.Stroke;
+            paint.StrokeWidth = 2.0f;
+
+            if (currentLayer >= stack.Slices.Count)
+                return;
+
+            PlanarSlice slice = stack.Slices[currentLayer];
+            foreach ( GeneralPolygon2d poly in slice.Solids ) {
+                SKPath path = MakePaths(poly, SceneToSkiaF);
+                canvas.DrawPath(path, paint);
+            }
+        }
 
 
 
@@ -711,6 +743,21 @@ namespace SliceViewer
         }
 
 
+        static SKPath MakePaths(GeneralPolygon2d poly, Func<Vector2d, SKPoint> mapF)
+        {
+            SKPath p = new SKPath();
+            add_poly(p, poly.Outer, mapF);
+            foreach (var h in poly.Holes )
+                add_poly(p, h, mapF);
+            return p;
+        }
+        static void add_poly(SKPath path, Polygon2d poly, Func<Vector2d, SKPoint> mapF)
+        {
+            int N = poly.VertexCount;
+            path.MoveTo(mapF(poly[0]));
+            for ( int i = 1; i <= N; ++i ) 
+                path.LineTo(mapF(poly[i % N]));
+        }
 
 
 
@@ -724,8 +771,7 @@ namespace SliceViewer
 
 
 
-
-        public List<PolyLine2d> GetPolylinesForLayer(int layer)
+            public List<PolyLine2d> GetPolylinesForLayer(int layer)
         {
             ToolpathSet pathSetIn = Paths;
 
