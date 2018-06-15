@@ -226,6 +226,7 @@ namespace SliceViewer
 
             if ( SHOW_RELOADED_GCODE_PATHS == false) {
                 View.SetPaths(printGen.AccumulatedPaths, settings);
+                View.SetSlices(slices);
             }
 
             return sWritePath;
