@@ -62,6 +62,7 @@ namespace SliceViewer
             //GCodeFile genGCode = MakerbotTests.StackedPolygonTest(poly, 2);
             //GCodeFile genGCode = MakerbotTests.StackedScaledPolygonTest(poly, 20, 0.5);
 
+            readMesh = StandardMeshReader.ReadMesh("../../../sample_files/cotan_cylinder.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/bunny_solid_2p5cm.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/bunny_solid_5cm_min.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/basic_step.obj");
@@ -223,6 +224,8 @@ namespace SliceViewer
             if (settings is ISailfishSettings) {
                 System.Diagnostics.Process.Start(GPX_PATH, (settings as ISailfishSettings).GPXModelFlag + " -p " + sWritePath);
             }
+
+            View.PathDiameterMM = (float)settings.Machine.NozzleDiamMM - 0.005f;
 
             if ( SHOW_RELOADED_GCODE_PATHS == false) {
                 View.SetPaths(printGen.AccumulatedPaths, settings);
