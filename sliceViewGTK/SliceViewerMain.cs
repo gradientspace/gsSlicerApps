@@ -27,6 +27,8 @@ namespace SliceViewer
 
 		public static void Main(string[] args)
 		{
+            GtkUtil.CheckWindowsGtk();
+
 			ExceptionManager.UnhandledException += delegate (UnhandledExceptionArgs expArgs) {
 				Console.WriteLine(expArgs.ExceptionObject.ToString());
 				expArgs.ExitApplication = true;
