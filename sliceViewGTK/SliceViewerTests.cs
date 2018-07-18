@@ -10,7 +10,7 @@ namespace SliceViewer
 {
 	public static class SliceViewerTests
 	{
-
+        public static DebugViewCanvas Active = null;
 
         public static void TestFill()
         {
@@ -25,6 +25,7 @@ namespace SliceViewer
 
             Polygon2d hole = Polygon2d.MakeCircle(15, 32);
             hole.Reverse();
+            hole.Translate(2 * Vector2d.AxisX);
             poly.AddHole(hole);
             
             view.AddPolygon(poly, Colorf.Black);
@@ -36,10 +37,10 @@ namespace SliceViewer
             foreach (double offset in offsets) {
                 DGraph2 graph = TopoOffset2d.QuickCompute(poly, offset, spacing);
                 DGraph2Util.Curves c = DGraph2Util.ExtractCurves(graph);
-                view.AddGraph(graph, Colorf.Red);
+                //view.AddGraph(graph, Colorf.Red);
 
                 //DGraph2 perturbGraph = perturb_fill(graph, poly, 5.0f, spacing);
-                DGraph2 perturbGraph = perturb_fill_2(graph, poly, 2.5f, spacing);
+                DGraph2 perturbGraph = perturb_fill_2(graph, poly, 1.0f, spacing);
                 //DGraph2Util.Curves c2 = DGraph2Util.ExtractCurves(perturbGraph);
                 view.AddGraph(perturbGraph, Colorf.Orange);
 
@@ -47,6 +48,8 @@ namespace SliceViewer
 
             window.Add(view);
             window.ShowAll();
+
+            Active = view;
         }
 
 
@@ -249,16 +252,58 @@ namespace SliceViewer
 		}
 
 
-        
 
 
 
 
 
 
- 
+
+
+        static GeneralPolygon2d Outer = null;
+        static float AnimSpacing = 0.3f;
+        static float AnimOffset = 0.01f;
+
+        public static void TestOffsetAnimation()
+        {
+            Window window = new Window("TestFill");
+            window.SetDefaultSize(600, 600);
+            window.SetPosition(WindowPosition.Center);
+
+            DMesh3 mesh = StandardMeshReader.ReadMesh("c:\\scratch\\remesh.obj");
+            MeshBoundaryLoops loops = new MeshBoundaryLoops(mesh);
+            DCurve3 curve = loops[0].ToCurve();
+            Polygon2d poly = new Polygon2d();
+            foreach (Vector3d v in curve.Vertices)
+                poly.AppendVertex(v.xy);
+            Outer = new GeneralPolygon2d(poly);
+
+            DebugViewCanvas view = new DebugViewCanvas();
+            view.AddPolygon(Outer, Colorf.Black);
+
+
+            DGraph2 graph = TopoOffset2d.QuickCompute(Outer, AnimOffset, AnimSpacing);
+            view.AddGraph(graph, Colorf.Red);
+
+            window.Add(view);
+            window.ShowAll();
+
+            Active = view;
+        }
+
+        public static void UpdateOffsetAnimation()
+        {
+            AnimOffset += 0.1f;
+            DGraph2 graph = TopoOffset2d.QuickCompute(Outer, AnimOffset, AnimSpacing);
+
+            Active.Graphs.Clear();
+            Active.AddGraph(graph, Colorf.Red);
+        }
 
 
 
-	}
+
+
+
+    }
 }

@@ -80,21 +80,30 @@ namespace SliceViewer
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/radial_fins_larger.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/bunny_hollow_5cm.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/notch_test_1.obj");
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/square_minus_shapes.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/variable_thins.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/arrow_posx.obj");
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/blobby_shape.obj");
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/socket_ros_simplified.obj");
             //readMesh = StandardMeshReader.ReadMesh("c:\\scratch\\bunny_fixed_flat.obj");
             //MeshUtil.ScaleMesh(readMesh, Frame3f.Identity, 1.1f*Vector3f.One);
+            //readMesh = StandardMeshReader.ReadMesh("c:\\scratch\\ARCHFORM_EXPORT_stage_12_lower.stl");
 
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/unsupported_slab_5deg.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/overhang_slab_1.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/edge_overhang.obj");
             //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/support_tilted_cone.obj");
-			readMesh = StandardMeshReader.ReadMesh("../../../sample_files/support_mintip.obj");
-			//readMesh = StandardMeshReader.ReadMesh("../../../sample_files/support_mintip_vtx.obj");
-			//readMesh = StandardMeshReader.ReadMesh("../../../sample_files/tilted_thin_slab.obj");
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/support_mintip.obj");
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/support_mintip_vtx.obj");
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/tilted_thin_slab.obj");
 
-			// interesting test case for clipselfoverlaps and scheduler
-			//readMesh = StandardMeshReader.ReadMesh("../../../sample_files/Slim_Type1.stl");
+            //readMesh = StandardMeshReader.ReadMesh("C:\\meshes\\user_bugs\\inverted_part.obj");
+            //readMesh = StandardMeshReader.ReadMesh("C:\\meshes\\user_bugs\\tail_tiny_support_dots.obj");
+            //readMesh = StandardMeshReader.ReadMesh("C:\\meshes\\user_bugs\\cone_inner.obj");
+
+            // interesting test case for clipselfoverlaps and scheduler
+            //readMesh = StandardMeshReader.ReadMesh("../../../sample_files/Slim_Type1.stl");
+
             DMesh3 cavityMesh = null;
 
             DMesh3 supportMesh = null;
@@ -157,28 +166,47 @@ namespace SliceViewer
         {
 			bool ENABLE_SUPPORT_ZSHIFT = true;
 
-			// configure settings
-			MakerbotSettings settings = new MakerbotSettings(Makerbot.Models.Replicator2);
-			//MonopriceSettings settings = new MonopriceSettings(Monoprice.Models.MP_Select_Mini_V2);
-			//PrintrbotSettings settings = new PrintrbotSettings(Printrbot.Models.Plus);
+            // configure settings
+            //MakerbotSettings settings = new MakerbotSettings(Makerbot.Models.Replicator2);
+            //FlashforgeSettings settings = new FlashforgeSettings(Flashforge.Models.CreatorPro);
+            //MonopriceSettings settings = new MonopriceSettings(Monoprice.Models.MP_Select_Mini_V2);
+            PrintrbotSettings settings = new PrintrbotSettings(Printrbot.Models.Plus);
+            //PrusaSettings settings = new PrusaSettings(Prusa.Models.i3_MK3);
+
+            //settings.ExtruderTempC = 215;
+            //settings.Machine.NozzleDiamMM = 0.4;
             settings.Shells = 2;
             settings.InteriorSolidRegionShells = 0;
-            settings.SparseLinearInfillStepX = 10;
+            settings.SparseLinearInfillStepX = 5;
+            //settings.SolidFillNozzleDiamStepX = 0;
+            //settings.SolidFillBorderOverlapX = 0;
+            //settings.SparseFillBorderOverlapX = 0;
             settings.ClipSelfOverlaps = false;
             //settings.RoofLayers = settings.FloorLayers = 0;
             //settings.LayerRangeFilter = new Interval1i(245, 255);
-            settings.LayerRangeFilter = new Interval1i(0, 40);
+            //settings.LayerRangeFilter = new Interval1i(0, 0);
+
+            settings.EnableBridging = true;
 
             settings.GenerateSupport = false;
             settings.EnableSupportShell = true;
+            settings.SupportMinZTips = false;
             settings.SupportSolidSpace = 0.35;
+            settings.SupportOverhangAngleDeg = 25;
 
-			//settings.Machine.NozzleDiamMM = 0.75;
-			//settings.Machine.MaxLayerHeightMM = 0.5;
-			//settings.FillPathSpacingMM = settings.Machine.NozzleDiamMM;
-			//settings.LayerHeightMM = 0.5;
+            //settings.OuterShellLast = true;
+            //settings.Shells = 0;
 
-			//settings.LayerRangeFilter = new Interval1i(130, 140);
+            //settings.Machine.NozzleDiamMM = 0.75;
+            //settings.Machine.MaxLayerHeightMM = 0.5;
+            //settings.FillPathSpacingMM = settings.Machine.NozzleDiamMM;
+            //settings.LayerHeightMM = 0.5;
+
+            settings.StartLayers = 0;
+            settings.StartLayerHeightMM = 0.3;
+
+
+            //settings.LayerRangeFilter = new Interval1i(130, 140);
 
             LastSettings = settings.CloneAs<SingleMaterialFFFSettings>();
 
@@ -436,8 +464,12 @@ namespace SliceViewer
 
             } else if ( args.Event.Key == Gdk.Key.q ) {
                 //SliceViewerTests.TestDGraph2();
-                SliceViewerTests.TestFill();
+                //SliceViewerTests.TestFill();
                 //SliceViewerTests.TestOffset();
+                if (SliceViewerTests.Active == null)
+                    SliceViewerTests.TestOffsetAnimation();
+                else
+                    SliceViewerTests.UpdateOffsetAnimation();
 
             } else if ( args.Event.Key == Gdk.Key.E ) {
                 List<PolyLine2d> paths = View.GetPolylinesForLayer(View.CurrentLayer);

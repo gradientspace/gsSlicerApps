@@ -139,8 +139,8 @@ namespace SliceViewer
 				paint.StrokeWidth = 1;
                 paint.Style = SKPaintStyle.Stroke;
 
-                //if (Slices != null)
-                //    DrawLayerSlice(Slices, canvas, paint);
+                if (Slices != null)
+                    DrawLayerSlice(Slices, canvas, paint);
 
 
                 if ( ShowDepositMoves )

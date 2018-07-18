@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using SkiaSharp;
+using System.IO;
 using g3;
 using gs;
 
@@ -8,9 +9,9 @@ namespace SliceViewer
 {
 	public class DebugViewCanvas : PanZoomCanvas2D
 	{
-		List<DGraph2> Graphs = new List<DGraph2>();
-		List<GeneralPolygon2d> GPolygons = new List<GeneralPolygon2d>();
-		Dictionary<object, Colorf> Colors = new Dictionary<object, Colorf>();
+		public List<DGraph2> Graphs = new List<DGraph2>();
+        public List<GeneralPolygon2d> GPolygons = new List<GeneralPolygon2d>();
+        public Dictionary<object, Colorf> Colors = new Dictionary<object, Colorf>();
 		int timestamp = 0;
 
 		Dictionary<object, SKPath> PathCache = new Dictionary<object, SKPath>();
@@ -128,6 +129,56 @@ namespace SliceViewer
 			}
 		}
 
+
+
+
+
+        public static void compute_distance_image()
+        {
+            DMesh3 mesh = StandardMeshReader.ReadMesh("c:\\scratch\\remesh.obj");
+            MeshBoundaryLoops loops = new MeshBoundaryLoops(mesh);
+            DCurve3 curve = loops[0].ToCurve();
+            Polygon2d poly = new Polygon2d();
+            foreach (Vector3d v in curve.Vertices)
+                poly.AppendVertex(v.xy);
+            int N = 1024;
+            double cellsize = poly.Bounds.MaxDim / (double)N;
+            Vector2d o = poly.Bounds.Min;
+            o -= 4 * cellsize * Vector2d.One;
+            N += 8;
+
+            ShiftGridIndexer2 indexer = new ShiftGridIndexer2(poly.Bounds.Min, cellsize);
+
+            double[] df = new double[N * N];
+            double maxd = 0;
+            for (int yi = 0; yi < N; ++yi) {
+                for (int xi = 0; xi < N; ++xi) {
+                    Vector2d p = indexer.FromGrid(new Vector2i(xi, yi));
+                    double d = Math.Sqrt(poly.DistanceSquared(p));
+                    df[yi * N + xi] = d;
+                    maxd = Math.Max(d, maxd);
+                }
+            }
+
+            SKBitmap bmp = new SKBitmap(N, N);
+            for (int yi = 0; yi < N; ++yi) {
+                for (int xi = 0; xi < N; ++xi) {
+                    double d = df[yi*N + xi];
+                    float f = (float)(d / maxd);
+                    byte b = (byte)(int)(f * 255);
+                    bmp.SetPixel(xi, yi, new SKColor(b, b, b));
+                }
+            }
+
+            using (var image = SKImage.FromBitmap(bmp))
+                using (var data = image.Encode(SKImageEncodeFormat.Png, 80)) {
+                    // save the data to a stream
+                    using (var stream = File.OpenWrite("c:\\scratch\\distances.png")) {
+                        data.SaveTo(stream);
+                    }
+            }
+
+        }
 
 
 	}
