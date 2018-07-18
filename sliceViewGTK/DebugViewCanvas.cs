@@ -171,7 +171,7 @@ namespace SliceViewer
             }
 
             using (var image = SKImage.FromBitmap(bmp))
-                using (var data = image.Encode(SKImageEncodeFormat.Png, 80)) {
+                using (var data = image.Encode(SKEncodedImageFormat.Png, 80)) {
                     // save the data to a stream
                     using (var stream = File.OpenWrite("c:\\scratch\\distances.png")) {
                         data.SaveTo(stream);
