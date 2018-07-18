@@ -291,7 +291,7 @@ namespace GeneratedPathsDemo
 
 
 
-        static void make_tip(IDepositionAssembler iassember, ThreeAxisPrinterCompiler icompiler)
+        static void make_tip(IGCodeAssembler iassember, ICNCCompiler icompiler)
         {
             BaseDepositionAssembler assembler = iassember as BaseDepositionAssembler;
             assembler.FlushQueues();

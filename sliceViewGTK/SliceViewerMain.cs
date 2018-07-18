@@ -368,7 +368,7 @@ namespace SliceViewer
                     gcode = parser.Parse(reader);
                 }
             }
-            GCodeToTubeMeshes make_tubes = new GCodeToTubeMeshes() {
+            GCodeToLayerTubeMeshes make_tubes = new GCodeToLayerTubeMeshes() {
                 TubeProfile = Polygon2d.MakeCircle(0.2f, 12)
             };
             MakerbotInterpreter interpreter = new MakerbotInterpreter();
