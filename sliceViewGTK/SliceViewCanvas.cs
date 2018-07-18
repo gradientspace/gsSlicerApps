@@ -306,7 +306,7 @@ namespace SliceViewer
         {
             SKColor fillColor = SkiaUtil.Color(255, 0, 255, 255);
 
-            SKRect bounds = baseCanvas.ClipBounds;
+            SKRect bounds = baseCanvas.LocalClipBounds;
 
             SKBitmap blitBitmap = new SKBitmap(PixelDimensions.x, PixelDimensions.y, SkiaUtil.ColorType(), SKAlphaType.Premul);
             IntPtr len;

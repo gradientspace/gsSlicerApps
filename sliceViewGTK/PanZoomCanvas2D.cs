@@ -74,7 +74,7 @@ namespace gs
 						pNew = Zoom * scale * pNew;
 						pNew += (Vector2f)pixC;
 						pNew += translate + Zoom * PixelTranslate;
-						pNew.y = canvas.ClipBounds.Height - pNew.y;
+						pNew.y = canvas.LocalClipBounds.Height - pNew.y;
 						return pNew;
 					};
 
